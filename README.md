@@ -41,63 +41,44 @@ timesheet-system/
     └── server.js           # Entry point
 ```
 
-## Getting Started
-
-### Prerequisites
-
-- Node.js (v14 or higher)
-- MongoDB (local or Atlas)
-- npm or yarn
-
-### Installation
+## Environment Setup
 
 1. Clone the repository
+2. Copy `.env.example` to `.env`:
+   ```bash
+   cp .env.example .env
    ```
-   git clone <repository-url>
-   cd timesheet-system
-   ```
+3. Update the `.env` file with your own values:
+   - Generate a secure JWT_SECRET
+   - Update MONGODB_URI if using a different database
+   - Update other values as needed
 
-2. Install server dependencies
-   ```
+4. Install dependencies:
+   ```bash
+   # Install server dependencies
    cd server
    npm install
-   ```
 
-3. Install client dependencies
-   ```
+   # Install client dependencies
    cd ../client
    npm install
    ```
 
-4. Set up environment variables
-   - Create a `.env` file in the server directory
-   - Add the following variables:
-     ```
-     PORT=5000
-     MONGODB_URI=mongodb://localhost:27017/timesheet-system
-     JWT_SECRET=your_jwt_secret_key_here
-     NODE_ENV=development
-     ```
+5. Start the development servers:
+   ```bash
+   # Start server (from server directory)
+   npm run dev
 
-### Running the Application
-
-1. Start the server
-   ```
-   cd server
-   npm run server
-   ```
-
-2. Start the client
-   ```
-   cd ../client
+   # Start client (from client directory)
    npm start
    ```
 
-3. For concurrent development (both client and server)
-   ```
-   cd server
-   npm run dev
-   ```
+## Security Notes
+
+- Never commit `.env` files to the repository
+- Keep your JWT_SECRET secure and unique for each environment
+- Regularly rotate sensitive credentials
+- Use environment variables for all sensitive configuration
 
 ## API Endpoints
 
