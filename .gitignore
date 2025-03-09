@@ -1,7 +1,5 @@
 # dependencies
-/node_modules
-/client/node_modules
-/server/node_modules
+node_modules/
 
 # environment files
 .env
@@ -9,8 +7,6 @@
 .env.development.local
 .env.test.local
 .env.production.local
-/client/.env
-/server/.env
 
 # logs
 npm-debug.log*
@@ -18,19 +14,26 @@ yarn-debug.log*
 yarn-error.log*
 
 # production build
-/build
-/client/build
-/server/build
+/build/
 
 # misc
 .DS_Store
-.idea/
-.vscode/
-*.swp
-*.swo
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
 
 # debug
 debug.log
 
 # local files
-*.local 
+*.local
+
+# Keep client source files
+!client/src/
+!client/public/
+!client/package.json
+!client/package-lock.json
+!client/README.md 
