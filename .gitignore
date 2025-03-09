@@ -29,7 +29,7 @@ Thumbs.db
 debug.log
 
 # local files
-*.local
+
 
 # Keep client source files
 !client/src/
