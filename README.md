@@ -1,4 +1,6 @@
-# Timesheet and Attendance Management System
+# Timesheet System
+
+[![CI](https://github.com/Ajaya-Rajbhandari/timesheet-system/actions/workflows/ci.yml/badge.svg)](https://github.com/Ajaya-Rajbhandari/timesheet-system/actions/workflows/ci.yml)
 
 A modern web-based timesheet and attendance management system built with the MERN stack (MongoDB, Express, React, Node.js).
 
