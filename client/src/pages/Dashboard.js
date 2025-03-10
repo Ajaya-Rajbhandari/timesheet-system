@@ -39,6 +39,7 @@ import { getCurrentStatus } from '../services/attendanceService';
 import { getMyTimeOffRequests } from '../services/timeOffService';
 import { getMySchedules } from '../services/scheduleService';
 import { Link } from 'react-router-dom';
+import api from '../services/api';
 
 const Dashboard = () => {
   const theme = useTheme();
@@ -72,28 +73,43 @@ const Dashboard = () => {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
-        const [statusRes, schedulesRes, timeOffRes] = await Promise.all([
+        
+        // Get current month's date range
+        const startDate = moment().startOf('month').format('YYYY-MM-DD');
+        const endDate = moment().endOf('month').format('YYYY-MM-DD');
+        
+        // Fetch data in parallel
+        const [statusRes, schedulesRes, timeOffRes, statsRes] = await Promise.all([
           getCurrentStatus(),
-          getMySchedules(moment().startOf('day'), moment().add(7, 'days')),
-          getMyTimeOffRequests()
+          getMySchedules(startDate, endDate),
+          getMyTimeOffRequests(),
+          api.get('/reports/user-stats', { params: { userId: user.id } })
         ]);
-
+        
         setAttendanceStatus({
           isClockedIn: statusRes.isClockedIn,
           clockInTime: statusRes.clockIn
         });
         setSchedules(schedulesRes);
         setTimeOffRequests(timeOffRes);
-
-        // Set mock data for quick stats (replace with actual API calls)
+        
+        // Use real data from the API
         setQuickStats({
-          totalHours: 156,
-          attendanceRate: 95,
+          totalHours: statsRes.data.totalHours || 0,
+          attendanceRate: statsRes.data.attendanceRate || 0,
           upcomingLeaves: timeOffRes.filter(r => r.status === 'approved').length,
           pendingRequests: timeOffRes.filter(r => r.status === 'pending').length
         });
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
+        
+        // Fallback to calculated values if API fails
+        setQuickStats({
+          totalHours: 0,
+          attendanceRate: 0,
+          upcomingLeaves: timeOffRequests.filter(r => r.status === 'approved').length,
+          pendingRequests: timeOffRequests.filter(r => r.status === 'pending').length
+        });
       } finally {
         setLoading(false);
       }

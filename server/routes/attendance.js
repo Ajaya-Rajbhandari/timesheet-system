@@ -149,8 +149,9 @@ router.put('/break/end', auth, async (req, res) => {
       return res.status(400).json({ message: 'Not on break' });
     }
 
-    const currentBreak = attendance.breaks[attendance.breaks.length - 1];
-    currentBreak.endTime = new Date();
+    // End the last break
+    const lastBreakIndex = attendance.breaks.length - 1;
+    attendance.breaks[lastBreakIndex].endTime = new Date();
 
     await attendance.save();
 
@@ -168,37 +169,50 @@ router.put('/break/end', auth, async (req, res) => {
  */
 router.get('/current', auth, async (req, res) => {
   try {
+    // Get today's date
     const today = moment().startOf('day');
     const tomorrow = moment(today).add(1, 'days');
     
+    // Find today's attendance record
     const attendance = await Attendance.findOne({
       user: req.user.id,
       clockIn: {
         $gte: today.toDate(),
         $lt: tomorrow.toDate()
-      },
-      clockOut: null  // Only consider active sessions
-    });
-
+      }
+    }).sort({ clockIn: -1 });
+    
     if (!attendance) {
       return res.json({
         isClockedIn: false,
-        isClockedOut: false,
-        isOnBreak: false
+        clockInTime: null,
+        clockOutTime: null,
+        onBreak: false,
+        breakStartTime: null
       });
     }
-
+    
+    // Check if the last break doesn't have an end time
+    const isOnBreak = attendance.breaks && 
+                     attendance.breaks.length > 0 && 
+                     !attendance.breaks[attendance.breaks.length - 1].endTime;
+    
+    // Get the start time of the last break if on break
+    const breakStartTime = isOnBreak ? 
+                          attendance.breaks[attendance.breaks.length - 1].startTime : 
+                          null;
+    
     res.json({
-      isClockedIn: true,
-      isClockedOut: false,
-      isOnBreak: attendance.isOnBreak,
-      clockIn: attendance.clockIn,
-      clockOut: null,
+      isClockedIn: !attendance.clockOut,
+      clockInTime: attendance.clockIn,
+      clockOutTime: attendance.clockOut,
+      onBreak: isOnBreak,
+      breakStartTime: breakStartTime,
       breaks: attendance.breaks
     });
   } catch (err) {
     console.error('Get current status error:', err);
-    res.status(500).json({ message: 'Server error getting current status' });
+    res.status(500).json({ message: 'Server error while getting current status' });
   }
 });
 
@@ -387,6 +401,49 @@ router.delete('/:id', auth, isManagerOrAdmin, async (req, res) => {
   } catch (err) {
     console.error('Delete attendance error:', err.message);
     res.status(500).json({ message: 'Server error' });
+  }
+});
+
+/**
+ * @route   POST api/attendance/auto-clockout
+ * @desc    Record an auto clock-out
+ * @access  Private
+ */
+router.post('/auto-clockout', auth, async (req, res) => {
+  try {
+    const { date, clockIn, clockOut, notes } = req.body;
+    
+    // Find the attendance record
+    const attendance = await Attendance.findOne({
+      user: req.user.id,
+      date: moment(date).startOf('day').toDate()
+    });
+    
+    if (!attendance) {
+      // Create a new attendance record
+      const newAttendance = new Attendance({
+        user: req.user.id,
+        date: moment(date).startOf('day').toDate(),
+        clockIn: clockIn,
+        clockOut: clockOut,
+        status: 'Auto-completed',
+        notes: notes || 'System auto clock-out at end of day'
+      });
+      
+      await newAttendance.save();
+      return res.status(201).json(newAttendance);
+    }
+    
+    // Update the existing attendance record
+    attendance.clockOut = clockOut;
+    attendance.status = 'Auto-completed';
+    attendance.notes = notes || 'System auto clock-out at end of day';
+    
+    await attendance.save();
+    res.json(attendance);
+  } catch (err) {
+    console.error('Error recording auto clock-out:', err);
+    res.status(500).json({ message: 'Server error while recording auto clock-out' });
   }
 });
 

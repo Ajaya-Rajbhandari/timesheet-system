@@ -56,10 +56,19 @@ const Register = () => {
   useEffect(() => {
     const fetchDepartments = async () => {
       try {
+        setLoading(true);
         const response = await axios.get('/api/departments');
         setDepartments(response.data);
+        
+        if (response.data.length === 0) {
+          setError('No departments available. Please contact an administrator to set up departments.');
+        }
+        
+        setLoading(false);
       } catch (err) {
         console.error('Error fetching departments:', err);
+        setError('Failed to load departments. Please try again later.');
+        setLoading(false);
       }
     };
     fetchDepartments();
@@ -103,10 +112,25 @@ const Register = () => {
       setLoading(true);
       setError(null);
       
-      await register(formData);
+      console.log('Submitting registration form with data:', { 
+        firstName, lastName, email, role, department, position, employeeId 
+      });
+      
+      // Use the register function from AuthContext
+      const user = await register(formData);
+      console.log('Registration successful, user:', user);
       navigate('/');
     } catch (err) {
-      setError(err.response?.data?.message || 'Registration failed. Please try again.');
+      console.error('Registration error:', err);
+      
+      // Check if the error is because the user already exists
+      if (err.response?.data?.message === 'User already exists') {
+        setError('An account with this email already exists. Please use a different email or try logging in.');
+      } else if (err.response?.data?.message === 'Employee ID is already in use') {
+        setError('This Employee ID is already in use. Please use a different ID.');
+      } else {
+        setError(err.response?.data?.message || 'Registration failed. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -224,13 +248,20 @@ const Register = () => {
                     value={department}
                     label="Department"
                     onChange={handleChange}
-                    disabled={loading}
+                    disabled={loading || departments.length === 0}
+                    error={departments.length === 0}
                   >
-                    {departments.map((dept) => (
-                      <MenuItem key={dept._id} value={dept._id}>
-                        {dept.name}
+                    {departments.length === 0 ? (
+                      <MenuItem disabled value="">
+                        <em>No departments available</em>
                       </MenuItem>
-                    ))}
+                    ) : (
+                      departments.map((dept) => (
+                        <MenuItem key={dept._id} value={dept._id}>
+                          {dept.name}
+                        </MenuItem>
+                      ))
+                    )}
                   </Select>
                 </FormControl>
               </Grid>

@@ -29,8 +29,14 @@ import {
 } from '@mui/icons-material';
 import moment from 'moment';
 import { useAuth } from '../contexts/AuthContext';
-import api from '../services/api';
-import { mockAttendanceHistory, mockCurrentStatus } from '../services/mockData';
+import { useAttendance } from '../contexts/AttendanceContext';
+import { 
+  clockIn, 
+  clockOut, 
+  getCurrentStatus, 
+  getAttendanceHistory,
+  recordAutoClockOut
+} from '../services/attendanceService';
 
 const Attendance = () => {
   const theme = useTheme();
@@ -39,17 +45,7 @@ const Attendance = () => {
   const [error, setError] = useState(null);
   const [currentTime, setCurrentTime] = useState(moment());
   const [selectedMonth, setSelectedMonth] = useState(moment());
-  const [currentStatus, setCurrentStatus] = useState(() => {
-    // Try to get the current status from localStorage
-    const savedStatus = localStorage.getItem('attendanceStatus');
-    return savedStatus ? JSON.parse(savedStatus) : {
-      isClockedIn: false,
-      clockInTime: null,
-      clockOutTime: null,
-      onBreak: false,
-      breakStartTime: null
-    };
-  });
+  const { currentStatus, updateStatus, fetchCurrentStatus } = useAttendance();
   const [attendanceHistory, setAttendanceHistory] = useState([]);
 
   // Update current time every minute and check for day change
@@ -63,12 +59,10 @@ const Attendance = () => {
       const today = newTime.format('YYYY-MM-DD');
       
       if (lastClockInDay && lastClockInDay !== today && currentStatus.isClockedIn) {
-        // It's a new day and user was still clocked in from yesterday
-        console.log('New day detected, resetting clock status');
-        
-        // Auto clock out at midnight
+        // Auto clock-out at the end of the previous day
         const yesterdayEndTime = moment(lastClockInDay).endOf('day').format();
         
+        // Create new status with clock-out
         const newStatus = {
           isClockedIn: false,
           clockInTime: null,
@@ -77,8 +71,7 @@ const Attendance = () => {
           breakStartTime: null
         };
         
-        setCurrentStatus(newStatus);
-        localStorage.setItem('attendanceStatus', JSON.stringify(newStatus));
+        updateStatus(newStatus);
         
         // Add record for auto clock out
         const newRecord = {
@@ -91,64 +84,48 @@ const Attendance = () => {
         };
         
         setAttendanceHistory(prev => [newRecord, ...prev]);
-        
-        // Try to update the server
-        try {
-          api.post('/attendance/auto-clockout', newRecord);
-        } catch (err) {
-          console.error('Failed to record auto clock-out:', err);
-        }
       }
     }, 60000);
     
     return () => clearInterval(timer);
-  }, [currentStatus]);
+  }, [currentStatus, updateStatus]);
 
-  // Save current status to localStorage whenever it changes
+  // Fetch attendance data on component mount
   useEffect(() => {
-    localStorage.setItem('attendanceStatus', JSON.stringify(currentStatus));
-  }, [currentStatus]);
-
-  // Fetch current status and attendance history
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        
-        // Try to get the current status from the API
-        try {
-          const statusResponse = await api.get('/attendance/status');
-          // If API call succeeds, update the state and localStorage
-          setCurrentStatus(statusResponse.data);
-        } catch (err) {
-          // If API call fails, use the data from localStorage
-          console.log('Using cached attendance status from localStorage');
-        }
-        
-        // Get attendance history
-        try {
-          const historyResponse = await api.get('/attendance/history', {
-            params: {
-              month: selectedMonth.format('YYYY-MM')
-            }
-          });
-          setAttendanceHistory(historyResponse.data);
-        } catch (err) {
-          // If history API fails, use mock data or empty array
-          console.error('Failed to fetch attendance history:', err);
-          setAttendanceHistory(mockAttendanceHistory);
-        }
-      } catch (err) {
-        setError('Failed to load attendance data. Please try again.');
-        console.error('Error:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchData();
-  }, [selectedMonth]);
+  }, []);
+  
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Try to get the current status from the API
+      try {
+        // Use fetchCurrentStatus from the AttendanceContext instead
+        await fetchCurrentStatus();
+      } catch (err) {
+        // If API call fails, use the data from localStorage
+        console.log('Using cached attendance status from localStorage');
+      }
+      
+      // Get attendance history
+      try {
+        const startDate = selectedMonth.clone().startOf('month').format('YYYY-MM-DD');
+        const endDate = selectedMonth.clone().endOf('month').format('YYYY-MM-DD');
+        const historyData = await getAttendanceHistory(startDate, endDate);
+        setAttendanceHistory(historyData);
+      } catch (err) {
+        console.error('Failed to fetch attendance history:', err);
+        setAttendanceHistory([]);
+      }
+    } catch (err) {
+      setError('Failed to load attendance data. Please try again.');
+      console.error('Error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleClockIn = async () => {
     try {
@@ -159,22 +136,24 @@ const Attendance = () => {
       
       try {
         // Try to call the API
-        const response = await api.post('/attendance/clock-in');
-        clockInTime = response.data.clockInTime || clockInTime;
+        const response = await clockIn();
+        clockInTime = response.clockInTime || clockInTime;
+        
+        // Refresh the attendance status from the server
+        await fetchCurrentStatus();
       } catch (err) {
         console.error('API call failed, using local time:', err);
         // Continue with local time if API fails
+        
+        // Update local status
+        const newStatus = {
+          ...currentStatus,
+          isClockedIn: true,
+          clockInTime: clockInTime
+        };
+        
+        updateStatus(newStatus);
       }
-      
-      // Update state regardless of API success
-      const newStatus = {
-        ...currentStatus,
-        isClockedIn: true,
-        clockInTime: clockInTime
-      };
-      
-      setCurrentStatus(newStatus);
-      localStorage.setItem('attendanceStatus', JSON.stringify(newStatus));
     } catch (err) {
       setError('Failed to clock in. Please try again.');
       console.error('Error:', err);
@@ -192,40 +171,24 @@ const Attendance = () => {
       
       try {
         // Try to call the API
-        const response = await api.post('/attendance/clock-out');
-        clockOutTime = response.data.clockOutTime || clockOutTime;
+        const response = await clockOut();
+        clockOutTime = response.clockOutTime || clockOutTime;
+        
+        // Refresh the attendance status from the server
+        await fetchCurrentStatus();
       } catch (err) {
         console.error('API call failed, using local time:', err);
         // Continue with local time if API fails
-      }
-      
-      // Update state regardless of API success
-      const newStatus = {
-        ...currentStatus,
-        isClockedIn: false,
-        clockOutTime: clockOutTime
-      };
-      
-      setCurrentStatus(newStatus);
-      localStorage.setItem('attendanceStatus', JSON.stringify(newStatus));
-
-      // Add the completed attendance record to history
-      const newRecord = {
-        id: Date.now(),
-        date: moment().format('YYYY-MM-DD'),
-        clockIn: currentStatus.clockInTime,
-        clockOut: clockOutTime,
-        status: 'Present'
-      };
-      
-      const updatedHistory = [newRecord, ...attendanceHistory];
-      setAttendanceHistory(updatedHistory);
-      
-      // Try to update the history on the server
-      try {
-        await api.post('/attendance/record', newRecord);
-      } catch (err) {
-        console.error('Failed to save attendance record to server:', err);
+        
+        // Update local status
+        const newStatus = {
+          ...currentStatus,
+          isClockedIn: false,
+          onBreak: false,
+          clockOutTime: clockOutTime
+        };
+        
+        updateStatus(newStatus);
       }
     } catch (err) {
       setError('Failed to clock out. Please try again.');

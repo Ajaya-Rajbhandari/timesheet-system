@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { auth } = require('../middleware/auth');
 const User = require('../models/User');
+const Department = require('../models/Department');
 
 /**
  * @route   POST api/auth/register
@@ -12,13 +13,26 @@ const User = require('../models/User');
  */
 router.post('/register', async (req, res) => {
   try {
-    const { firstName, lastName, email, password, role, department, position, employeeId, phoneNumber } = req.body;
+    console.log('Registration request received:', req.body);
+    
+    const { 
+      firstName, 
+      lastName, 
+      email, 
+      password, 
+      role, 
+      department, 
+      position, 
+      employeeId, 
+      phoneNumber 
+    } = req.body;
 
     // Validate required fields
     const requiredFields = ['firstName', 'lastName', 'email', 'password', 'department', 'position', 'employeeId'];
     const missingFields = requiredFields.filter(field => !req.body[field]);
     
     if (missingFields.length > 0) {
+      console.log('Missing fields:', missingFields);
       return res.status(400).json({
         message: `Missing required fields: ${missingFields.join(', ')}`
       });
@@ -27,23 +41,27 @@ router.post('/register', async (req, res) => {
     // Validate email format
     const emailRegex = /^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/;
     if (!emailRegex.test(email)) {
+      console.log('Invalid email format:', email);
       return res.status(400).json({ message: 'Please enter a valid email address' });
     }
 
     // Validate password length
     if (password.length < 6) {
+      console.log('Password too short');
       return res.status(400).json({ message: 'Password must be at least 6 characters' });
     }
 
     // Check if user already exists
     let user = await User.findOne({ email });
     if (user) {
+      console.log('User already exists:', email);
       return res.status(400).json({ message: 'User already exists' });
     }
 
     // Check if employee ID is already in use
     user = await User.findOne({ employeeId });
     if (user) {
+      console.log('Employee ID already in use:', employeeId);
       return res.status(400).json({ message: 'Employee ID is already in use' });
     }
 
@@ -51,8 +69,16 @@ router.post('/register', async (req, res) => {
     if (phoneNumber) {
       const phoneRegex = /^[+]?[(]?[0-9]{3}[)]?[-\s.]?[0-9]{3}[-\s.]?[0-9]{4,6}$/;
       if (!phoneRegex.test(phoneNumber)) {
+        console.log('Invalid phone number format:', phoneNumber);
         return res.status(400).json({ message: 'Please enter a valid phone number' });
       }
+    }
+    
+    // Check if department exists
+    const departmentExists = await Department.findById(department);
+    if (!departmentExists) {
+      console.log('Department not found:', department);
+      return res.status(400).json({ message: 'Department not found' });
     }
 
     // Create new user
@@ -70,6 +96,7 @@ router.post('/register', async (req, res) => {
 
     // Save user to database
     await user.save();
+    console.log('User created successfully:', user.email);
 
     // Create JWT payload
     const payload = {

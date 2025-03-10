@@ -5,6 +5,7 @@ import CssBaseline from '@mui/material/CssBaseline';
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterMoment } from '@mui/x-date-pickers/AdapterMoment';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { AttendanceProvider } from './contexts/AttendanceContext';
 import { CustomThemeProvider } from './context/ThemeContext';
 import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
@@ -62,29 +63,31 @@ const ProtectedRoute = ({ children }) => {
 function App() {
   return (
     <AuthProvider>
-      <CustomThemeProvider>
-        <LocalizationProvider dateAdapter={AdapterMoment}>
-          <Router>
-            <Routes>
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-              <Route element={
-                <ProtectedRoute>
-                  <Layout />
-                </ProtectedRoute>
-              }>
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/attendance" element={<Attendance />} />
-                <Route path="/schedule" element={<Schedule />} />
-                <Route path="/timeoff" element={<TimeOff />} />
-                <Route path="/reports" element={<Reports />} />
-                <Route path="/users" element={<Users />} />
-                <Route path="/shift-swaps" element={<ShiftSwaps />} />
-              </Route>
-            </Routes>
-          </Router>
-        </LocalizationProvider>
-      </CustomThemeProvider>
+      <AttendanceProvider>
+        <CustomThemeProvider>
+          <LocalizationProvider dateAdapter={AdapterMoment}>
+            <Router>
+              <Routes>
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
+                <Route element={
+                  <ProtectedRoute>
+                    <Layout />
+                  </ProtectedRoute>
+                }>
+                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/attendance" element={<Attendance />} />
+                  <Route path="/schedule" element={<Schedule />} />
+                  <Route path="/timeoff" element={<TimeOff />} />
+                  <Route path="/reports" element={<Reports />} />
+                  <Route path="/users" element={<Users />} />
+                  <Route path="/shift-swaps" element={<ShiftSwaps />} />
+                </Route>
+              </Routes>
+            </Router>
+          </LocalizationProvider>
+        </CustomThemeProvider>
+      </AttendanceProvider>
     </AuthProvider>
   );
 }

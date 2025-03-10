@@ -51,6 +51,24 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const register = async (formData) => {
+    try {
+      console.log('Registration attempt with:', { email: formData.email });
+      const response = await api.post('/auth/register', formData);
+      console.log('Registration response:', response.data);
+      const { token, user } = response.data;
+      localStorage.setItem('token', token);
+      console.log('Setting user:', user);
+      setUser(user);
+      setError(null);
+      return user;
+    } catch (err) {
+      console.error('Registration error:', err);
+      setError(err.response?.data?.message || 'Registration failed');
+      throw err;
+    }
+  };
+
   const logout = () => {
     localStorage.removeItem('token');
     setUser(null);
@@ -62,6 +80,7 @@ export const AuthProvider = ({ children }) => {
     loading,
     error,
     login,
+    register,
     logout,
     checkAuthStatus,
     isAdmin: user?.role === 'admin',

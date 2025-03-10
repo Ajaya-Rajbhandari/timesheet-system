@@ -26,7 +26,7 @@ const DepartmentSchema = new mongoose.Schema({
   manager: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: [true, 'Department manager is required']
+    required: false
   },
   parentDepartment: {
     type: mongoose.Schema.Types.ObjectId,
@@ -95,7 +95,7 @@ DepartmentSchema.index({ manager: 1 });
 
 // Pre-save middleware to ensure manager exists and has appropriate role
 DepartmentSchema.pre('save', async function(next) {
-  if (this.isModified('manager')) {
+  if (this.isModified('manager') && this.manager) {
     try {
       const User = mongoose.model('User');
       const manager = await User.findById(this.manager);

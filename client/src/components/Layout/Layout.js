@@ -18,7 +18,8 @@ import {
   useMediaQuery,
   useTheme,
   FormControlLabel,
-  Switch
+  Switch,
+  Chip
 } from '@mui/material';
 import { useNavigate, Outlet } from 'react-router-dom';
 import MenuIcon from '@mui/icons-material/Menu';
@@ -35,6 +36,7 @@ import {
   Brightness7 as LightModeIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
+import { useAttendance } from '../../contexts/AttendanceContext';
 import { useTheme as useCustomTheme } from '../../context/ThemeContext';
 import Sidebar from './Sidebar';
 import { styled } from '@mui/material/styles';
@@ -99,6 +101,7 @@ const UserInfo = styled(Box)(({ theme }) => ({
 
 const Layout = () => {
   const { user, logout, isAdmin, isManager } = useAuth();
+  const { getStatusText, getStatusColor } = useAttendance();
   const navigate = useNavigate();
   const theme = useTheme();
   const { darkMode, toggleDarkMode } = useCustomTheme();
@@ -171,9 +174,21 @@ const Layout = () => {
               <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
                 {user ? `${user.firstName} ${user.lastName}` : 'User'}
               </Typography>
-              <Typography variant="caption" sx={{ opacity: 0.8 }}>
-                {isAdmin ? 'Administrator' : isManager ? 'Manager' : 'Employee'}
-              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                  {isAdmin ? 'Administrator' : isManager ? 'Manager' : 'Employee'}
+                </Typography>
+                <Chip 
+                  label={getStatusText()} 
+                  size="small" 
+                  sx={{ 
+                    height: 20, 
+                    fontSize: '0.7rem',
+                    bgcolor: getStatusColor(),
+                    color: 'white'
+                  }} 
+                />
+              </Box>
             </Box>
           </UserInfo>
 

@@ -7,6 +7,7 @@ const TimeOff = require('../models/TimeOff');
 const Schedule = require('../models/Schedule');
 const mongoose = require('mongoose');
 const reportController = require('../controllers/reportController');
+const moment = require('moment');
 
 // @route   GET api/reports/attendance-summary
 // @desc    Get attendance summary report
@@ -493,6 +494,91 @@ router.get('/user-details/:userId', auth, async (req, res) => {
     res.status(500).send('Server Error');
   }
 });
+
+/**
+ * @route   GET api/reports/user-stats
+ * @desc    Get stats for a specific user
+ * @access  Private
+ */
+router.get('/user-stats', auth, async (req, res) => {
+  try {
+    const userId = req.query.userId || req.user.id;
+    
+    // Check if user has permission to view stats for this user
+    if (userId !== req.user.id && !['admin', 'manager'].includes(req.user.role)) {
+      return res.status(403).json({ message: 'Access denied. Not authorized to view stats for this user.' });
+    }
+    
+    // Get current month's date range
+    const startDate = moment().startOf('month').toDate();
+    const endDate = moment().endOf('month').toDate();
+    
+    // Get attendance records for the user
+    const attendanceRecords = await Attendance.find({
+      user: userId,
+      date: { $gte: startDate, $lte: endDate }
+    });
+    
+    // Calculate total hours worked
+    let totalHours = 0;
+    attendanceRecords.forEach(record => {
+      if (record.clockIn && record.clockOut) {
+        const clockIn = moment(record.clockIn);
+        const clockOut = moment(record.clockOut);
+        const duration = moment.duration(clockOut.diff(clockIn));
+        totalHours += duration.asHours();
+      }
+    });
+    
+    // Calculate attendance rate
+    const workDays = getWorkDays(startDate, endDate);
+    const attendedDays = new Set(attendanceRecords.map(record => 
+      moment(record.date).format('YYYY-MM-DD')
+    )).size;
+    
+    const attendanceRate = workDays > 0 ? Math.round((attendedDays / workDays) * 100) : 0;
+    
+    // Get schedule data
+    const schedules = await Schedule.find({
+      user: userId,
+      startDate: { $gte: startDate, $lte: endDate }
+    });
+    
+    // Get time off data
+    const timeOffRequests = await TimeOff.find({
+      user: userId,
+      status: 'approved',
+      startDate: { $gte: startDate }
+    }).sort({ startDate: 1 });
+    
+    res.json({
+      totalHours: Math.round(totalHours * 10) / 10, // Round to 1 decimal place
+      attendanceRate,
+      scheduledDays: schedules.length,
+      upcomingTimeOff: timeOffRequests.length
+    });
+  } catch (err) {
+    console.error('Error getting user stats:', err);
+    res.status(500).json({ message: 'Server error while fetching user stats' });
+  }
+});
+
+// Helper function to get number of work days in a date range
+function getWorkDays(startDate, endDate) {
+  let count = 0;
+  let current = moment(startDate);
+  const end = moment(endDate);
+  
+  while (current.isSameOrBefore(end)) {
+    // Check if it's a weekday (Monday to Friday)
+    if (current.day() !== 0 && current.day() !== 6) {
+      count++;
+    }
+    current.add(1, 'day');
+  }
+  
+  return count;
+}
 
 // Get report data
 router.get('/data', auth, reportController.getReportData);
