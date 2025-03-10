@@ -70,7 +70,7 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterMoment } from '@mui/x-date-pickers/AdapterMoment';
 import moment from 'moment';
 import { useAuth } from '../contexts/AuthContext';
-import { getMySchedules, createSchedule, updateSchedule, deleteSchedule } from '../services/scheduleService';
+import { getMySchedules, getSchedules, createSchedule, updateSchedule, deleteSchedule } from '../services/scheduleService';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import { 
@@ -209,7 +209,16 @@ const Schedule = () => {
       setLoading(true);
       const startOfMonth = moment(selectedDate).startOf('month');
       const endOfMonth = moment(selectedDate).endOf('month');
-      const data = await getMySchedules(startOfMonth.format('YYYY-MM-DD'), endOfMonth.format('YYYY-MM-DD'));
+      
+      let data;
+      if (isAdmin || isManager) {
+        // Admin/managers can see all schedules
+        data = await getSchedules(startOfMonth.format('YYYY-MM-DD'), endOfMonth.format('YYYY-MM-DD'));
+      } else {
+        // Regular employees can only see their own schedules
+        data = await getMySchedules(startOfMonth.format('YYYY-MM-DD'), endOfMonth.format('YYYY-MM-DD'));
+      }
+      
       setSchedules(data);
       setError(null);
     } catch (err) {
@@ -218,7 +227,7 @@ const Schedule = () => {
     } finally {
       setLoading(false);
     }
-  }, [selectedDate]);
+  }, [selectedDate, isAdmin, isManager]);
 
   useEffect(() => {
     fetchSchedules();
@@ -580,7 +589,7 @@ const Schedule = () => {
                     color: isToday 
                       ? 'primary.main' 
                       : isWeekendDay
-                        ? baseTheme.palette.mode === 'dark'
+                        ? baseTheme.palette.mode === 'dark' 
                           ? baseTheme.palette.error.light
                           : baseTheme.palette.error.main
                         : baseTheme.palette.mode === 'dark'
@@ -596,9 +605,7 @@ const Schedule = () => {
                   <InfoIcon 
                     sx={{ 
                       fontSize: '0.875rem', 
-                      color: baseTheme.palette.mode === 'dark'
-                        ? baseTheme.palette.text.secondary
-                        : baseTheme.palette.text.secondary
+                      color: baseTheme.palette.text.secondary
                     }} 
                   />
                 </Tooltip>
@@ -1404,7 +1411,9 @@ const Schedule = () => {
   };
 
   const handleExportClick = (event) => {
-    setExportAnchorEl(event.currentTarget);
+    if (isAdmin || isManager) {
+      setExportAnchorEl(event.currentTarget);
+    }
   };
 
   const handleExportClose = () => {
@@ -1421,6 +1430,8 @@ const Schedule = () => {
   };
 
   const getExportData = (period) => {
+    if (!isAdmin && !isManager) return { schedules: [], fileName: '' };
+    
     let exportSchedules = [];
     let fileName = '';
 
@@ -1466,22 +1477,23 @@ const Schedule = () => {
   };
 
   const exportToCSV = (period) => {
+    if (!isAdmin && !isManager) return;
+    
     const { schedules: exportSchedules, fileName } = getExportData(period);
     
-    const headers = ['Start Date', 'End Date', 'Start Time', 'End Time', 'Type', 'Working Days', 'Notes'];
     const csvContent = [
-      headers.join(','),
+      ['Start Date', 'End Date', 'Start Time', 'End Time', 'Type', 'Working Days', 'Notes'],
       ...exportSchedules.map(schedule => [
         moment(schedule.startDate).format('YYYY-MM-DD'),
         moment(schedule.endDate).format('YYYY-MM-DD'),
         schedule.startTime,
         schedule.endTime,
         schedule.type,
-        schedule.days.join(';'),
-        `"${(schedule.notes || '').replace(/"/g, '""')}"` // Escape quotes in notes
-      ].join(','))
-    ].join('\n');
-
+        schedule.days.join(', '),
+        schedule.notes || ''
+      ])
+    ].map(row => row.join(',')).join('\n');
+    
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
@@ -1494,6 +1506,8 @@ const Schedule = () => {
   };
 
   const exportToJSON = (period) => {
+    if (!isAdmin && !isManager) return;
+    
     const { schedules: exportSchedules, fileName } = getExportData(period);
     
     const jsonContent = JSON.stringify(exportSchedules, null, 2);
@@ -1509,6 +1523,8 @@ const Schedule = () => {
   };
 
   const exportToExcel = (period) => {
+    if (!isAdmin && !isManager) return;
+    
     const { schedules: exportSchedules, fileName } = getExportData(period);
     
     const worksheet = XLSX.utils.json_to_sheet(exportSchedules.map(schedule => ({
@@ -1533,26 +1549,75 @@ const Schedule = () => {
   };
 
   const previewExport = (period) => {
-    const { schedules: exportSchedules } = getExportData(period);
-    setPreviewData(exportSchedules);
-    setPreviewOpen(true);
-    handleExportClose();
+    if (isAdmin || isManager) {
+      setExportPeriod(period);
+      const data = getExportData(period);
+      setPreviewData(data.schedules.slice(0, 10)); // Show first 10 items in preview
+      setPreviewOpen(true);
+      handleExportClose();
+    }
   };
 
   const handleExport = (period) => {
-    switch (exportFormat) {
-      case 'csv':
-        exportToCSV(period);
-        break;
-      case 'json':
-        exportToJSON(period);
-        break;
-      case 'excel':
-        exportToExcel(period);
-        break;
-      default:
-        exportToCSV(period);
+    if (isAdmin || isManager) {
+      switch (exportFormat) {
+        case 'csv':
+          exportToCSV(period);
+          break;
+        case 'json':
+          exportToJSON(period);
+          break;
+        case 'excel':
+          exportToExcel(period);
+          break;
+        default:
+          exportToCSV(period);
+      }
     }
+  };
+
+  const renderActionButtons = () => {
+    if (!isAdmin && !isManager) return null;
+    
+    return (
+      <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => {
+            setSelectedSchedule(null);
+            setOpenDialog(true);
+          }}
+        >
+          Add Schedule
+        </Button>
+      </Box>
+    );
+  };
+
+  const renderScheduleOptions = (schedule) => {
+    if (!isAdmin && !isManager) {
+      return null;
+    }
+    
+    return (
+      <Stack direction="row" spacing={1}>
+        <IconButton
+          size="small"
+          onClick={() => handleEdit(schedule)}
+          color="primary"
+        >
+          <EditIcon />
+        </IconButton>
+        <IconButton
+          size="small"
+          onClick={() => handleDelete(schedule._id)}
+          color="error"
+        >
+          <DeleteIcon />
+        </IconButton>
+      </Stack>
+    );
   };
 
   if (loading && schedules.length === 0) {
@@ -1618,7 +1683,7 @@ const Schedule = () => {
           bgcolor: alpha(customTheme.palette.background.paper, 0.8),
           borderRadius: 4,
           boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.15)',
-          border: '1px solid rgba(255, 255, 255, 0.18)',
+          border: '1px solid rgba(0, 0, 0, 0.1)',
         }}>
           <CardContent sx={{ 
             display: 'flex', 
@@ -1642,7 +1707,7 @@ const Schedule = () => {
                   mb: 1
                 }}
               >
-                Schedule Management
+                {isAdmin || isManager ? 'Schedule Management' : 'My Schedule'}
               </Typography>
               <Typography 
                 variant="subtitle1" 
@@ -1685,45 +1750,22 @@ const Schedule = () => {
                 }}
               />
               
-              <Button
-                variant="outlined"
-                startIcon={<DownloadIcon />}
-                onClick={handleExportClick}
-                sx={{ 
-                  borderRadius: 3,
-                  borderColor: 'primary.main',
-                  color: 'primary.main',
-                  '&:hover': {
-                    borderColor: 'primary.dark',
-                    bgcolor: alpha(baseTheme.palette.primary.main, 0.1),
-                  }
-                }}
-              >
-                Export
-              </Button>
-
               {(isAdmin || isManager) && (
                 <Button
-                  variant="contained"
-                  startIcon={<AddIcon />}
-                  onClick={() => {
-                    setSelectedSchedule(null);
-                    setOpenDialog(true);
-                  }}
+                  variant="outlined"
+                  startIcon={<DownloadIcon />}
+                  onClick={handleExportClick}
                   sx={{ 
-                    py: 1.5,
-                    px: 3,
                     borderRadius: 3,
-                    background: 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)',
-                    boxShadow: '0 3px 5px 2px rgba(33, 203, 243, .3)',
-                    transition: 'all 0.2s',
+                    borderColor: 'primary.main',
+                    color: 'primary.main',
                     '&:hover': {
-                      transform: 'translateY(-2px)',
-                      boxShadow: '0 5px 15px 2px rgba(33, 203, 243, .4)'
+                      borderColor: 'primary.dark',
+                      bgcolor: alpha(baseTheme.palette.primary.main, 0.1),
                     }
                   }}
                 >
-                  New Schedule
+                  Export
                 </Button>
               )}
             </Stack>
@@ -1831,558 +1873,231 @@ const Schedule = () => {
           </CardContent>
         </Card>
 
-        <Dialog 
-          open={openDialog} 
-          onClose={() => setOpenDialog(false)}
-          maxWidth="sm"
-          fullWidth
-          PaperProps={{
-            sx: {
-              borderRadius: 4,
-              bgcolor: alpha(customTheme.palette.background.paper, 0.95),
-              backdropFilter: 'blur(10px)',
-              border: '1px solid rgba(0, 0, 0, 0.1)',
-            }
-          }}
-        >
-          <DialogTitle sx={{ 
-            pb: 1,
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center'
-          }}>
-            {selectedSchedule ? 'Edit Schedule' : 'New Schedule'}
-            <IconButton onClick={() => {
-              setOpenDialog(false);
-              resetForm();
-            }} size="small">
-              <CloseIcon />
-            </IconButton>
-          </DialogTitle>
-          <form onSubmit={handleSubmit}>
-            <DialogContent sx={{ pb: 2 }}>
-              <Stack spacing={3}>
-                {validationErrors.length > 0 && (
-                  <Alert 
-                    severity="error"
-                    sx={{ 
-                      borderRadius: 2,
-                      '& .MuiAlert-message': { width: '100%' }
-                    }}
-                  >
-                    <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                      Please correct the following errors:
-                    </Typography>
-                    <Stack spacing={1}>
-                      {validationErrors.map((error, index) => (
-                        <Typography key={index} variant="body2">
-                          • {error.message}
-                          {error.conflicts && (
-                            <Button
+        {renderActionButtons()}
+
+        {(isAdmin || isManager) && (
+          <Menu
+            anchorEl={exportAnchorEl}
+            open={Boolean(exportAnchorEl)}
+            onClose={handleExportClose}
+            PaperProps={{
+              sx: {
+                mt: 1.5,
+                borderRadius: 2,
+                minWidth: 200,
+                boxShadow: '0 8px 16px rgba(0,0,0,0.1)',
+              }
+            }}
+          >
+            <MenuItem sx={{ typography: 'subtitle2', color: 'text.secondary', cursor: 'default' }}>
+              Export Format
+            </MenuItem>
+            <Divider />
+            <MenuItem onClick={() => setExportFormat('csv')}>
+              <ListItemIcon>
+                <RadioButtonChecked 
+                  fontSize="small"
+                  sx={{ 
+                    visibility: exportFormat === 'csv' ? 'visible' : 'hidden',
+                    color: 'primary.main'
+                  }}
+                />
+              </ListItemIcon>
+              CSV Format
+            </MenuItem>
+            <MenuItem onClick={() => setExportFormat('excel')}>
+              <ListItemIcon>
+                <RadioButtonChecked 
+                  fontSize="small"
+                  sx={{ 
+                    visibility: exportFormat === 'excel' ? 'visible' : 'hidden',
+                    color: 'primary.main'
+                  }}
+                />
+              </ListItemIcon>
+              Excel Format
+            </MenuItem>
+            <MenuItem onClick={() => setExportFormat('json')}>
+              <ListItemIcon>
+                <RadioButtonChecked 
+                  fontSize="small"
+                  sx={{ 
+                    visibility: exportFormat === 'json' ? 'visible' : 'hidden',
+                    color: 'primary.main'
+                  }}
+                />
+              </ListItemIcon>
+              JSON Format
+            </MenuItem>
+            <Divider />
+            <MenuItem sx={{ typography: 'subtitle2', color: 'text.secondary', cursor: 'default' }}>
+              Export Period
+            </MenuItem>
+            <MenuItem onClick={() => handleExport('current')}>
+              Current View
+            </MenuItem>
+            <MenuItem onClick={() => handleExport('month')}>
+              Current Month
+            </MenuItem>
+            <MenuItem onClick={() => handleExport('week')}>
+              Current Week
+            </MenuItem>
+            <MenuItem onClick={() => setCustomRangeOpen(true)}>
+              Custom Range...
+            </MenuItem>
+            <MenuItem onClick={() => handleExport('all')}>
+              All Schedules
+            </MenuItem>
+            <Divider />
+            <MenuItem onClick={() => previewExport(exportPeriod)}>
+              <ListItemIcon>
+                <PreviewIcon fontSize="small" />
+              </ListItemIcon>
+              Preview Export
+            </MenuItem>
+          </Menu>
+        )}
+        
+        {(isAdmin || isManager) && (
+          <>
+            {/* Preview Dialog */}
+            <Dialog
+              open={previewOpen}
+              onClose={handlePreviewClose}
+              maxWidth="md"
+              fullWidth
+              PaperProps={{
+                sx: {
+                  borderRadius: 2,
+                  bgcolor: alpha(customTheme.palette.background.paper, 0.95),
+                }
+              }}
+            >
+              <DialogTitle>
+                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                  <Typography variant="h6">Export Preview</Typography>
+                  <IconButton onClick={handlePreviewClose} size="small">
+                    <CloseIcon />
+                  </IconButton>
+                </Stack>
+              </DialogTitle>
+              <DialogContent>
+                <Box sx={{ maxHeight: 400, overflow: 'auto' }}>
+                  <Table>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Start Date</TableCell>
+                        <TableCell>End Date</TableCell>
+                        <TableCell>Time</TableCell>
+                        <TableCell>Type</TableCell>
+                        <TableCell>Working Days</TableCell>
+                        <TableCell>Notes</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {previewData?.map((schedule, index) => (
+                        <TableRow key={index}>
+                          <TableCell>{moment(schedule.startDate).format('YYYY-MM-DD')}</TableCell>
+                          <TableCell>{moment(schedule.endDate).format('YYYY-MM-DD')}</TableCell>
+                          <TableCell>{schedule.startTime} - {schedule.endTime}</TableCell>
+                          <TableCell>
+                            <Chip
+                              label={schedule.type}
                               size="small"
-                              onClick={() => setShowSuggestions(true)}
-                              sx={{ ml: 1 }}
-                            >
-                              View Suggestions
-                            </Button>
-                          )}
-                        </Typography>
+                              color={
+                                schedule.type === 'regular' ? 'primary' :
+                                schedule.type === 'overtime' ? 'error' :
+                                schedule.type === 'flexible' ? 'warning' : 'success'
+                              }
+                            />
+                          </TableCell>
+                          <TableCell>{schedule.days.join(', ')}</TableCell>
+                          <TableCell>{schedule.notes}</TableCell>
+                        </TableRow>
                       ))}
-                    </Stack>
-                  </Alert>
-                )}
-
-                <LocalizationProvider dateAdapter={AdapterMoment}>
-                  <Grid container spacing={2}>
-                    <Grid item xs={12} md={6}>
-                      <DatePicker
-                        label="Start Date"
-                        value={formData.startDate}
-                        onChange={(newValue) => setFormData({ ...formData, startDate: newValue })}
-                        renderInput={(params) => (
-                          <TextField 
-                            {...params} 
-                            fullWidth
-                            required
-                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3 } }}
-                          />
-                        )}
-                      />
-                    </Grid>
-                    <Grid item xs={12} md={6}>
-                      <DatePicker
-                        label="End Date"
-                        value={formData.endDate}
-                        onChange={(newValue) => setFormData({ ...formData, endDate: newValue })}
-                        renderInput={(params) => (
-                          <TextField 
-                            {...params} 
-                            fullWidth
-                            required
-                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3 } }}
-                          />
-                        )}
-                        minDate={formData.startDate}
-                      />
-                    </Grid>
-                    <Grid item xs={12} md={6}>
-                      <TimePicker
-                        label="Start Time"
-                        value={formData.startTime}
-                        onChange={(newValue) => setFormData({ ...formData, startTime: newValue })}
-                        renderInput={(params) => (
-                          <TextField 
-                            {...params} 
-                            fullWidth
-                            required
-                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3 } }}
-                          />
-                        )}
-                      />
-                    </Grid>
-                    <Grid item xs={12} md={6}>
-                      <TimePicker
-                        label="End Time"
-                        value={formData.endTime}
-                        onChange={(newValue) => setFormData({ ...formData, endTime: newValue })}
-                        renderInput={(params) => (
-                          <TextField 
-                            {...params} 
-                            fullWidth
-                            required
-                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3 } }}
-                          />
-                        )}
-                      />
-                    </Grid>
-                  </Grid>
-                </LocalizationProvider>
-
-                <TextField
-                  select
-                  label="Schedule Type"
-                  value={formData.type}
-                  onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                  required
-                  fullWidth
-                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3 } }}
+                    </TableBody>
+                  </Table>
+                </Box>
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={handlePreviewClose}>Close</Button>
+                <Button
+                  variant="contained"
+                  onClick={() => {
+                    handleExport(exportPeriod);
+                    handlePreviewClose();
+                  }}
+                  startIcon={<FileDownloadIcon />}
                 >
-                  {scheduleTypes.map((option) => (
-                    <MenuItem key={option.value} value={option.value}>
-                      {option.label}
-                    </MenuItem>
-                  ))}
-                </TextField>
+                  Export
+                </Button>
+              </DialogActions>
+            </Dialog>
 
-                <Box>
-                  <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                    Working Days
-                  </Typography>
-                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                    {weekDays.map((day) => (
-                      <Chip
-                        key={day.value}
-                        label={day.label.slice(0, 3)}
-                        color={formData.days.includes(day.value) ? 'primary' : 'default'}
-                        onClick={() => {
-                          const newDays = formData.days.includes(day.value)
-                            ? formData.days.filter(d => d !== day.value)
-                            : [...formData.days, day.value];
-                          setFormData({ ...formData, days: newDays });
-                        }}
-                        sx={{ 
-                          borderRadius: 2,
-                          m: 0.5
-                        }}
-                      />
-                    ))}
-                  </Stack>
-                </Box>
-
-                <TextField
-                  label="Notes"
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  multiline
-                  rows={3}
-                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3 } }}
-                />
-
-                {showSuggestions && suggestions.length > 0 && (
-                  <Paper sx={{ p: 2, borderRadius: 2 }}>
-                    <Typography variant="subtitle2" sx={{ mb: 2 }}>
-                      Suggested Alternatives:
-                    </Typography>
-                    <Stack spacing={1}>
-                      {suggestions.map((suggestion, index) => (
-                        <Button
-                          key={index}
-                          variant="outlined"
-                          size="small"
-                          onClick={() => handleSuggestionSelect(suggestion)}
-                          sx={{ 
-                            justifyContent: 'flex-start',
-                            textAlign: 'left',
-                            borderRadius: 2
-                          }}
-                        >
-                          {suggestion.message}
-                        </Button>
-                      ))}
-                    </Stack>
-                  </Paper>
-                )}
-
-                <Box sx={{ mt: 2 }}>
-                  <Typography variant="subtitle2" color="text.secondary">
-                    Total Working Hours: {calculateWorkingHours(formData).toFixed(1)} hours
-                    {checkWorkingHoursLimit(formData) && (
-                      <Typography 
-                        variant="caption" 
-                        color="error" 
-                        sx={{ display: 'block', mt: 0.5 }}
-                      >
-                        Warning: Exceeds 40 hours per week
-                      </Typography>
-                    )}
-                  </Typography>
-                </Box>
-              </Stack>
-            </DialogContent>
-            <DialogActions sx={{ px: 3, pb: 3 }}>
-              <Button 
-                onClick={() => {
-                  setOpenDialog(false);
-                  resetForm();
-                }}
-                sx={{ 
-                  borderRadius: 3,
-                  px: 3
-                }}
-              >
-                Cancel
-              </Button>
-              <Button 
-                type="submit"
-                variant="contained"
-                sx={{ 
-                  borderRadius: 3,
-                  px: 3,
-                  background: 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)',
-                  boxShadow: '0 3px 5px 2px rgba(33, 203, 243, .3)'
-                }}
-              >
-                {selectedSchedule ? 'Update' : 'Create'}
-              </Button>
-            </DialogActions>
-          </form>
-        </Dialog>
-
-        <Menu
-          anchorEl={exportAnchorEl}
-          open={Boolean(exportAnchorEl)}
-          onClose={handleExportClose}
-          PaperProps={{
-            sx: {
-              mt: 1.5,
-              borderRadius: 2,
-              minWidth: 200,
-              boxShadow: '0 8px 16px rgba(0,0,0,0.1)',
-            }
-          }}
-        >
-          <MenuItem sx={{ typography: 'subtitle2', color: 'text.secondary', cursor: 'default' }}>
-            Export Format
-          </MenuItem>
-          <Divider />
-          <MenuItem onClick={() => setExportFormat('csv')}>
-            <ListItemIcon>
-              <RadioButtonChecked 
-                fontSize="small"
-                sx={{ 
-                  visibility: exportFormat === 'csv' ? 'visible' : 'hidden',
-                  color: 'primary.main'
-                }}
-              />
-            </ListItemIcon>
-            CSV Format
-          </MenuItem>
-          <MenuItem onClick={() => setExportFormat('excel')}>
-            <ListItemIcon>
-              <RadioButtonChecked 
-                fontSize="small"
-                sx={{ 
-                  visibility: exportFormat === 'excel' ? 'visible' : 'hidden',
-                  color: 'primary.main'
-                }}
-              />
-            </ListItemIcon>
-            Excel Format
-          </MenuItem>
-          <MenuItem onClick={() => setExportFormat('json')}>
-            <ListItemIcon>
-              <RadioButtonChecked 
-                fontSize="small"
-                sx={{ 
-                  visibility: exportFormat === 'json' ? 'visible' : 'hidden',
-                  color: 'primary.main'
-                }}
-              />
-            </ListItemIcon>
-            JSON Format
-          </MenuItem>
-          <Divider />
-          <MenuItem sx={{ typography: 'subtitle2', color: 'text.secondary', cursor: 'default' }}>
-            Export Period
-          </MenuItem>
-          <MenuItem onClick={() => handleExport('current')}>
-            Current View
-          </MenuItem>
-          <MenuItem onClick={() => handleExport('month')}>
-            Current Month
-          </MenuItem>
-          <MenuItem onClick={() => handleExport('week')}>
-            Current Week
-          </MenuItem>
-          <MenuItem onClick={() => setCustomRangeOpen(true)}>
-            Custom Range...
-          </MenuItem>
-          <MenuItem onClick={() => handleExport('all')}>
-            All Schedules
-          </MenuItem>
-          <Divider />
-          <MenuItem onClick={() => previewExport(exportPeriod)}>
-            <ListItemIcon>
-              <PreviewIcon fontSize="small" />
-            </ListItemIcon>
-            Preview Export
-          </MenuItem>
-        </Menu>
-
-        {/* Preview Dialog */}
-        <Dialog
-          open={previewOpen}
-          onClose={handlePreviewClose}
-          maxWidth="md"
-          fullWidth
-          PaperProps={{
-            sx: {
-              borderRadius: 2,
-              bgcolor: alpha(customTheme.palette.background.paper, 0.95),
-            }
-          }}
-        >
-          <DialogTitle>
-            <Stack direction="row" justifyContent="space-between" alignItems="center">
-              <Typography variant="h6">Export Preview</Typography>
-              <IconButton onClick={handlePreviewClose} size="small">
-                <CloseIcon />
-              </IconButton>
-            </Stack>
-          </DialogTitle>
-          <DialogContent>
-            <Box sx={{ maxHeight: 400, overflow: 'auto' }}>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Start Date</TableCell>
-                    <TableCell>End Date</TableCell>
-                    <TableCell>Time</TableCell>
-                    <TableCell>Type</TableCell>
-                    <TableCell>Working Days</TableCell>
-                    <TableCell>Notes</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {previewData?.map((schedule, index) => (
-                    <TableRow key={index}>
-                      <TableCell>{moment(schedule.startDate).format('YYYY-MM-DD')}</TableCell>
-                      <TableCell>{moment(schedule.endDate).format('YYYY-MM-DD')}</TableCell>
-                      <TableCell>{schedule.startTime} - {schedule.endTime}</TableCell>
-                      <TableCell>
-                        <Chip
-                          label={schedule.type}
-                          size="small"
-                          color={
-                            schedule.type === 'regular' ? 'primary' :
-                            schedule.type === 'overtime' ? 'error' :
-                            schedule.type === 'flexible' ? 'warning' : 'success'
-                          }
+            {/* Custom Date Range Dialog */}
+            <Dialog
+              open={customRangeOpen}
+              onClose={handleCustomRangeClose}
+              PaperProps={{
+                sx: {
+                  borderRadius: 2,
+                  bgcolor: alpha(customTheme.palette.background.paper, 0.95),
+                }
+              }}
+            >
+              <DialogTitle>
+                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                  <Typography variant="h6">Custom Date Range</Typography>
+                  <IconButton onClick={handleCustomRangeClose} size="small">
+                    <CloseIcon />
+                  </IconButton>
+                </Stack>
+              </DialogTitle>
+              <DialogContent>
+                <Stack spacing={3} sx={{ mt: 1 }}>
+                  <LocalizationProvider dateAdapter={AdapterMoment}>
+                    <DatePicker
+                      label="Start Date"
+                      value={customDateRange.startDate}
+                      onChange={(newValue) => setCustomDateRange(prev => ({ ...prev, startDate: newValue }))}
+                      renderInput={(params) => (
+                        <TextField 
+                          {...params} 
+                          fullWidth
+                          sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
                         />
-                      </TableCell>
-                      <TableCell>{schedule.days.join(', ')}</TableCell>
-                      <TableCell>{schedule.notes}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </Box>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={handlePreviewClose}>Close</Button>
-            <Button
-              variant="contained"
-              onClick={() => {
-                handleExport(exportPeriod);
-                handlePreviewClose();
-              }}
-              startIcon={<FileDownloadIcon />}
-            >
-              Export
-            </Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* Custom Date Range Dialog */}
-        <Dialog
-          open={customRangeOpen}
-          onClose={handleCustomRangeClose}
-          PaperProps={{
-            sx: {
-              borderRadius: 2,
-              bgcolor: alpha(customTheme.palette.background.paper, 0.95),
-            }
-          }}
-        >
-          <DialogTitle>
-            <Stack direction="row" justifyContent="space-between" alignItems="center">
-              <Typography variant="h6">Custom Date Range</Typography>
-              <IconButton onClick={handleCustomRangeClose} size="small">
-                <CloseIcon />
-              </IconButton>
-            </Stack>
-          </DialogTitle>
-          <DialogContent>
-            <Stack spacing={3} sx={{ mt: 1 }}>
-              <LocalizationProvider dateAdapter={AdapterMoment}>
-                <DatePicker
-                  label="Start Date"
-                  value={customDateRange.startDate}
-                  onChange={(newValue) => setCustomDateRange(prev => ({ ...prev, startDate: newValue }))}
-                  renderInput={(params) => (
-                    <TextField 
-                      {...params} 
-                      fullWidth
-                      sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                      )}
                     />
-                  )}
-                />
-                <DatePicker
-                  label="End Date"
-                  value={customDateRange.endDate}
-                  onChange={(newValue) => setCustomDateRange(prev => ({ ...prev, endDate: newValue }))}
-                  renderInput={(params) => (
-                    <TextField 
-                      {...params} 
-                      fullWidth
-                      sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                    <DatePicker
+                      label="End Date"
+                      value={customDateRange.endDate}
+                      onChange={(newValue) => setCustomDateRange(prev => ({ ...prev, endDate: newValue }))}
+                      renderInput={(params) => (
+                        <TextField 
+                          {...params} 
+                          fullWidth
+                          sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                        />
+                      )}
+                      minDate={customDateRange.startDate}
                     />
-                  )}
-                  minDate={customDateRange.startDate}
-                />
-              </LocalizationProvider>
-            </Stack>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={handleCustomRangeClose}>Cancel</Button>
-            <Button
-              variant="contained"
-              onClick={() => {
-                handleExport('custom');
-                handleCustomRangeClose();
-              }}
-            >
-              Export
-            </Button>
-          </DialogActions>
-        </Dialog>
-
-        <Button
-          onClick={() => setShowSwapHistory(true)}
-          startIcon={<HistoryIcon />}
-        >
-          Swap History
-        </Button>
-
-        <Dialog
-          open={showSwapHistory}
-          onClose={() => setShowSwapHistory(false)}
-          maxWidth="md"
-          fullWidth
-        >
-          <DialogTitle>Shift Swap History</DialogTitle>
-          <DialogContent>
-            <ShiftSwapHistory />
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setShowSwapHistory(false)}>
-              Close
-            </Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* Schedule Options Dialog for Employees */}
-        <Dialog
-          open={scheduleOptionsOpen}
-          onClose={() => setScheduleOptionsOpen(false)}
-          maxWidth="xs"
-          fullWidth
-        >
-          <DialogTitle>Schedule Options</DialogTitle>
-          <List>
-            <ListItem button onClick={() => {
-              handleRequestShiftSwap(selectedSchedule);
-            }}>
-              <ListItemIcon>
-                <SwapHorizIcon />
-              </ListItemIcon>
-              <ListItemText primary="Request Shift Swap" />
-            </ListItem>
-            <ListItem button onClick={() => {
-              setScheduleOptionsOpen(false);
-              setShiftSwapHistoryOpen(true);
-            }}>
-              <ListItemIcon>
-                <HistoryIcon />
-              </ListItemIcon>
-              <ListItemText primary="View Shift Swap History" />
-            </ListItem>
-          </List>
-          <DialogActions>
-            <Button onClick={() => setScheduleOptionsOpen(false)}>Cancel</Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* Shift Swap Dialog */}
-        <ShiftSwap
-          open={shiftSwapDialogOpen}
-          onClose={() => setShiftSwapDialogOpen(false)}
-          schedule={selectedScheduleForSwap}
-        />
-
-        {/* Shift Swap History Dialog */}
-        <Dialog
-          open={shiftSwapHistoryOpen}
-          onClose={() => setShiftSwapHistoryOpen(false)}
-          maxWidth="md"
-          fullWidth
-        >
-          <DialogTitle>Shift Swap History</DialogTitle>
-          <DialogContent>
-            <ShiftSwapHistory />
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setShiftSwapHistoryOpen(false)}>Close</Button>
-          </DialogActions>
-        </Dialog>
-
-        {['admin', 'manager'].includes(user.role) && (
-          <Box mt={3}>
-            <Typography variant="h5" gutterBottom>
-              Shift Swap Management
-            </Typography>
-            <ManagerSwapApproval />
-          </Box>
+                  </LocalizationProvider>
+                </Stack>
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={handleCustomRangeClose}>Cancel</Button>
+                <Button
+                  variant="contained"
+                  onClick={() => {
+                    handleExport('custom');
+                    handleCustomRangeClose();
+                  }}
+                >
+                  Export
+                </Button>
+              </DialogActions>
+            </Dialog>
+          </>
         )}
       </Container>
     </Box>

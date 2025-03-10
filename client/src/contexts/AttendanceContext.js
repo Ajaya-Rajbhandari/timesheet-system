@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { getCurrentStatus, clockIn, clockOut, startBreak, endBreak } from '../services/attendanceService';
 import { useAuth } from './AuthContext';
+import { debounce } from 'lodash';
 
 const AttendanceContext = createContext();
 
@@ -34,7 +35,29 @@ export const AttendanceProvider = ({ children }) => {
   const lastServerRefresh = useRef(null);
   // Track if we're waiting for auth to complete
   const waitingForAuth = useRef(true);
-  
+
+  // Debounce the status update function to prevent rapid consecutive updates
+  const debouncedUpdateStatus = useRef(debounce((newStatus) => {
+    console.log('Debounced updating status with:', newStatus);
+    
+    setCurrentStatus(prev => {
+      const updatedStatus = {
+        ...prev,
+        ...newStatus,
+        isLoading: false,
+        lastUpdated: new Date().toISOString()
+      };
+      
+      // Log the updated status for debugging
+      console.log('Updated status:', updatedStatus);
+      
+      // Save to cache immediately
+      saveStatusToCache(updatedStatus);
+      
+      return updatedStatus;
+    });
+  }, 1000)); // 1 second debounce delay
+
   // Save status to localStorage
   const saveStatusToCache = useCallback((status) => {
     if (!isAuthenticated || !user?._id) return;
@@ -55,28 +78,8 @@ export const AttendanceProvider = ({ children }) => {
 
   // Update status function - defined before it's used in other functions
   const updateStatus = useCallback((newStatus) => {
-    console.log('Updating status with:', newStatus);
-    
-    setCurrentStatus(prev => {
-      const updatedStatus = {
-        ...prev,
-        ...newStatus,
-        isLoading: false,
-        lastUpdated: new Date().toISOString()
-      };
-      
-      // Log the updated status for debugging
-      console.log('Updated status:', updatedStatus);
-      
-      // Save to cache immediately
-      saveStatusToCache(updatedStatus);
-      
-      return updatedStatus;
-    });
-    
-    // Force a server refresh after local update to ensure server is in sync
-    setTimeout(() => refreshStatus(true), 500);
-  }, [saveStatusToCache]);
+    debouncedUpdateStatus.current(newStatus);
+  }, []);
 
   const refreshStatus = useCallback(async (force = false) => {
     // Don't attempt to refresh while auth is still loading
