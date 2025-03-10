@@ -16,8 +16,9 @@ import {
   Event as EventIcon,
   Assessment as AssessmentIcon,
   People as PeopleIcon,
+  SwapHoriz as SwapHorizIcon,
 } from '@mui/icons-material';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 
 const Sidebar = () => {
@@ -30,6 +31,7 @@ const Sidebar = () => {
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
     { text: 'Attendance', icon: <AccessTimeIcon />, path: '/attendance' },
     { text: 'Schedule', icon: <EventIcon />, path: '/schedule' },
+    { text: 'Shift Swaps', icon: <SwapHorizIcon />, path: '/shift-swaps' },
     { text: 'Time Off', icon: <EventIcon />, path: '/timeoff' },
     { text: 'Reports', icon: <AssessmentIcon />, path: '/reports', adminOnly: true }
   ];

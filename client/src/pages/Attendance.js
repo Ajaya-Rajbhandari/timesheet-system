@@ -28,7 +28,7 @@ import {
   Timer as TimerIcon
 } from '@mui/icons-material';
 import moment from 'moment';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
 import { mockAttendanceHistory, mockCurrentStatus } from '../services/mockData';
 
@@ -39,22 +39,75 @@ const Attendance = () => {
   const [error, setError] = useState(null);
   const [currentTime, setCurrentTime] = useState(moment());
   const [selectedMonth, setSelectedMonth] = useState(moment());
-  const [currentStatus, setCurrentStatus] = useState({
-    isClockedIn: false,
-    clockInTime: null,
-    clockOutTime: null,
-    onBreak: false,
-    breakStartTime: null
+  const [currentStatus, setCurrentStatus] = useState(() => {
+    // Try to get the current status from localStorage
+    const savedStatus = localStorage.getItem('attendanceStatus');
+    return savedStatus ? JSON.parse(savedStatus) : {
+      isClockedIn: false,
+      clockInTime: null,
+      clockOutTime: null,
+      onBreak: false,
+      breakStartTime: null
+    };
   });
   const [attendanceHistory, setAttendanceHistory] = useState([]);
 
-  // Update current time every minute
+  // Update current time every minute and check for day change
   useEffect(() => {
     const timer = setInterval(() => {
-      setCurrentTime(moment());
+      const newTime = moment();
+      setCurrentTime(newTime);
+      
+      // Check if it's a new day and reset status if needed
+      const lastClockInDay = currentStatus.clockInTime ? moment(currentStatus.clockInTime).format('YYYY-MM-DD') : null;
+      const today = newTime.format('YYYY-MM-DD');
+      
+      if (lastClockInDay && lastClockInDay !== today && currentStatus.isClockedIn) {
+        // It's a new day and user was still clocked in from yesterday
+        console.log('New day detected, resetting clock status');
+        
+        // Auto clock out at midnight
+        const yesterdayEndTime = moment(lastClockInDay).endOf('day').format();
+        
+        const newStatus = {
+          isClockedIn: false,
+          clockInTime: null,
+          clockOutTime: null,
+          onBreak: false,
+          breakStartTime: null
+        };
+        
+        setCurrentStatus(newStatus);
+        localStorage.setItem('attendanceStatus', JSON.stringify(newStatus));
+        
+        // Add record for auto clock out
+        const newRecord = {
+          id: Date.now(),
+          date: lastClockInDay,
+          clockIn: currentStatus.clockInTime,
+          clockOut: yesterdayEndTime,
+          status: 'Auto-completed',
+          notes: 'System auto clock-out at end of day'
+        };
+        
+        setAttendanceHistory(prev => [newRecord, ...prev]);
+        
+        // Try to update the server
+        try {
+          api.post('/attendance/auto-clockout', newRecord);
+        } catch (err) {
+          console.error('Failed to record auto clock-out:', err);
+        }
+      }
     }, 60000);
+    
     return () => clearInterval(timer);
-  }, []);
+  }, [currentStatus]);
+
+  // Save current status to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('attendanceStatus', JSON.stringify(currentStatus));
+  }, [currentStatus]);
 
   // Fetch current status and attendance history
   useEffect(() => {
@@ -63,23 +116,29 @@ const Attendance = () => {
         setLoading(true);
         setError(null);
         
-        // Temporarily using mock data
-        setCurrentStatus(mockCurrentStatus);
-        setAttendanceHistory(mockAttendanceHistory);
+        // Try to get the current status from the API
+        try {
+          const statusResponse = await api.get('/attendance/status');
+          // If API call succeeds, update the state and localStorage
+          setCurrentStatus(statusResponse.data);
+        } catch (err) {
+          // If API call fails, use the data from localStorage
+          console.log('Using cached attendance status from localStorage');
+        }
         
-        /* Commented out until backend is ready
-        const [statusResponse, historyResponse] = await Promise.all([
-          api.get('/attendance/status'),
-          api.get('/attendance/history', {
+        // Get attendance history
+        try {
+          const historyResponse = await api.get('/attendance/history', {
             params: {
               month: selectedMonth.format('YYYY-MM')
             }
-          })
-        ]);
-        
-        setCurrentStatus(statusResponse.data);
-        setAttendanceHistory(historyResponse.data);
-        */
+          });
+          setAttendanceHistory(historyResponse.data);
+        } catch (err) {
+          // If history API fails, use mock data or empty array
+          console.error('Failed to fetch attendance history:', err);
+          setAttendanceHistory(mockAttendanceHistory);
+        }
       } catch (err) {
         setError('Failed to load attendance data. Please try again.');
         console.error('Error:', err);
@@ -96,22 +155,26 @@ const Attendance = () => {
       setLoading(true);
       setError(null);
       
-      // Temporarily using mock data
-      const mockResponse = {
-        data: {
-          clockInTime: moment().format()
-        }
-      };
+      let clockInTime = moment().format();
       
-      /* Commented out until backend is ready
-      const response = await api.post('/attendance/clock-in');
-      */
+      try {
+        // Try to call the API
+        const response = await api.post('/attendance/clock-in');
+        clockInTime = response.data.clockInTime || clockInTime;
+      } catch (err) {
+        console.error('API call failed, using local time:', err);
+        // Continue with local time if API fails
+      }
       
-      setCurrentStatus({
+      // Update state regardless of API success
+      const newStatus = {
         ...currentStatus,
         isClockedIn: true,
-        clockInTime: mockResponse.data.clockInTime
-      });
+        clockInTime: clockInTime
+      };
+      
+      setCurrentStatus(newStatus);
+      localStorage.setItem('attendanceStatus', JSON.stringify(newStatus));
     } catch (err) {
       setError('Failed to clock in. Please try again.');
       console.error('Error:', err);
@@ -125,40 +188,79 @@ const Attendance = () => {
       setLoading(true);
       setError(null);
       
-      // Temporarily using mock data
-      const mockResponse = {
-        data: {
-          clockOutTime: moment().format()
-        }
-      };
+      let clockOutTime = moment().format();
       
-      /* Commented out until backend is ready
-      const response = await api.post('/attendance/clock-out');
-      */
+      try {
+        // Try to call the API
+        const response = await api.post('/attendance/clock-out');
+        clockOutTime = response.data.clockOutTime || clockOutTime;
+      } catch (err) {
+        console.error('API call failed, using local time:', err);
+        // Continue with local time if API fails
+      }
       
-      setCurrentStatus({
+      // Update state regardless of API success
+      const newStatus = {
         ...currentStatus,
         isClockedIn: false,
-        clockOutTime: mockResponse.data.clockOutTime
-      });
+        clockOutTime: clockOutTime
+      };
+      
+      setCurrentStatus(newStatus);
+      localStorage.setItem('attendanceStatus', JSON.stringify(newStatus));
 
       // Add the completed attendance record to history
-      setAttendanceHistory([
-        {
-          id: Date.now(),
-          date: moment().format('YYYY-MM-DD'),
-          clockIn: currentStatus.clockInTime,
-          clockOut: mockResponse.data.clockOutTime,
-          status: 'Present'
-        },
-        ...attendanceHistory
-      ]);
+      const newRecord = {
+        id: Date.now(),
+        date: moment().format('YYYY-MM-DD'),
+        clockIn: currentStatus.clockInTime,
+        clockOut: clockOutTime,
+        status: 'Present'
+      };
+      
+      const updatedHistory = [newRecord, ...attendanceHistory];
+      setAttendanceHistory(updatedHistory);
+      
+      // Try to update the history on the server
+      try {
+        await api.post('/attendance/record', newRecord);
+      } catch (err) {
+        console.error('Failed to save attendance record to server:', err);
+      }
     } catch (err) {
       setError('Failed to clock out. Please try again.');
       console.error('Error:', err);
     } finally {
       setLoading(false);
     }
+  };
+
+  // Calculate time elapsed since clock in
+  const getElapsedTime = () => {
+    if (!currentStatus.isClockedIn || !currentStatus.clockInTime) {
+      return '00:00:00';
+    }
+    
+    const clockInMoment = moment(currentStatus.clockInTime);
+    const duration = moment.duration(currentTime.diff(clockInMoment));
+    
+    const hours = String(Math.floor(duration.asHours())).padStart(2, '0');
+    const minutes = String(duration.minutes()).padStart(2, '0');
+    const seconds = String(duration.seconds()).padStart(2, '0');
+    
+    return `${hours}:${minutes}:${seconds}`;
+  };
+  
+  // Check if user has been clocked in for too long (more than 12 hours)
+  const isLongShift = () => {
+    if (!currentStatus.isClockedIn || !currentStatus.clockInTime) {
+      return false;
+    }
+    
+    const clockInMoment = moment(currentStatus.clockInTime);
+    const duration = moment.duration(currentTime.diff(clockInMoment));
+    
+    return duration.asHours() >= 12;
   };
 
   if (loading) {
@@ -197,59 +299,99 @@ const Attendance = () => {
           {error}
         </Alert>
       )}
+      
+      {currentStatus.isClockedIn && isLongShift() && (
+        <Alert severity="warning" sx={{ mb: 3 }}>
+          You have been clocked in for more than 12 hours. Please remember to clock out when your shift ends.
+        </Alert>
+      )}
 
       {/* Status Card */}
-      <Card sx={{
-        mb: 4,
-        background: theme.palette.mode === 'dark'
-          ? 'linear-gradient(135deg, rgba(37, 37, 37, 0.9), rgba(30, 30, 30, 0.9))'
-          : 'linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(240, 240, 240, 0.9))',
-        backdropFilter: 'blur(10px)',
-        border: `1px solid ${theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}`,
+      <Card sx={{ 
+        mb: 4, 
+        borderRadius: 2,
+        boxShadow: theme.palette.mode === 'dark' 
+          ? '0 8px 32px 0 rgba(0, 0, 0, 0.37)'
+          : '0 8px 32px 0 rgba(31, 38, 135, 0.15)',
+        overflow: 'hidden'
       }}>
-        <CardContent sx={{ textAlign: 'center', py: 4 }}>
-          <Chip
-            icon={currentStatus.isClockedIn ? <CheckIcon /> : <CancelIcon />}
-            label={currentStatus.isClockedIn ? 'Clocked In' : 'Clocked Out'}
-            color={currentStatus.isClockedIn ? 'success' : 'error'}
-            sx={{ mb: 3, px: 2, py: 3, fontSize: '1.1rem' }}
-          />
-          
-          <Box sx={{ mt: 2 }}>
-            {currentStatus.isClockedIn ? (
-              <>
-                <Typography variant="body1" sx={{ mb: 2 }}>
-                  Clocked in at: {moment(currentStatus.clockInTime).format('HH:mm')}
-                </Typography>
-                <Button
-                  variant="contained"
-                  color="error"
-                  startIcon={<TimerIcon />}
-                  onClick={handleClockOut}
-                  disabled={loading}
-                  sx={{ minWidth: 200 }}
-                >
-                  Clock Out
-                </Button>
-              </>
-            ) : (
-              <>
-                <Typography variant="body1" sx={{ mb: 2 }}>
-                  Ready to start your day?
-                </Typography>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  startIcon={<ClockIcon />}
-                  onClick={handleClockIn}
-                  disabled={loading}
-                  sx={{ minWidth: 200 }}
-                >
-                  Clock In
-                </Button>
-              </>
+        <Box sx={{ 
+          p: 2, 
+          background: currentStatus.isClockedIn 
+            ? 'linear-gradient(45deg, #4CAF50 30%, #81C784 90%)'
+            : 'linear-gradient(45deg, #F44336 30%, #E57373 90%)',
+          color: 'white'
+        }}>
+          <Typography variant="h6" sx={{ fontWeight: 600 }}>
+            Current Status: {currentStatus.isClockedIn ? 'Clocked In' : 'Clocked Out'}
+          </Typography>
+        </Box>
+        <CardContent>
+          <Grid container spacing={3} alignItems="center">
+            <Grid item xs={12} md={6}>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: { xs: 2, md: 0 } }}>
+                <ClockIcon sx={{ fontSize: 40, mr: 2, color: 'primary.main' }} />
+                <Box>
+                  <Typography variant="body2" color="textSecondary">
+                    {currentStatus.isClockedIn ? 'Clocked in at:' : 'Last clock out:'}
+                  </Typography>
+                  <Typography variant="h6">
+                    {currentStatus.isClockedIn && currentStatus.clockInTime 
+                      ? moment(currentStatus.clockInTime).format('hh:mm A')
+                      : currentStatus.clockOutTime 
+                        ? moment(currentStatus.clockOutTime).format('hh:mm A')
+                        : 'Not available'}
+                  </Typography>
+                </Box>
+              </Box>
+            </Grid>
+            
+            {currentStatus.isClockedIn && (
+              <Grid item xs={12} md={6}>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <TimerIcon sx={{ fontSize: 40, mr: 2, color: 'primary.main' }} />
+                  <Box>
+                    <Typography variant="body2" color="textSecondary">
+                      Time elapsed:
+                    </Typography>
+                    <Typography variant="h6" sx={{ fontFamily: 'monospace' }}>
+                      {getElapsedTime()}
+                    </Typography>
+                  </Box>
+                </Box>
+              </Grid>
             )}
-          </Box>
+            
+            <Grid item xs={12}>
+              <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+                {!currentStatus.isClockedIn ? (
+                  <Button
+                    variant="contained"
+                    color="success"
+                    size="large"
+                    startIcon={<ClockIcon />}
+                    onClick={handleClockIn}
+                    disabled={loading}
+                    sx={{ minWidth: 150 }}
+                  >
+                    Clock In
+                  </Button>
+                ) : (
+                  <Button
+                    variant="contained"
+                    color="error"
+                    size="large"
+                    startIcon={<ClockIcon />}
+                    onClick={handleClockOut}
+                    disabled={loading}
+                    sx={{ minWidth: 150 }}
+                  >
+                    Clock Out
+                  </Button>
+                )}
+              </Box>
+            </Grid>
+          </Grid>
         </CardContent>
       </Card>
 

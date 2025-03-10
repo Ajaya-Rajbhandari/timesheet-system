@@ -1,121 +1,81 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+const User = require('../models/User');
+const Department = require('../models/Department');
 require('dotenv').config();
 
-// Import models
-const Department = require('../models/Department');
-const User = require('../models/User');
+async function initializeDb() {
+    try {
+        // Connect to MongoDB
+        await mongoose.connect(process.env.MONGODB_URI);
+        console.log('Connected to MongoDB...');
 
-const initializeDb = async () => {
-  try {
-    // Connect to MongoDB
-    await mongoose.connect(process.env.MONGODB_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true
-    });
-    console.log('Connected to MongoDB...');
+        // Clear existing data
+        await User.deleteMany({});
+        await Department.deleteMany({});
 
-    // First, create admin user if doesn't exist
-    const adminData = {
-      firstName: 'Admin',
-      lastName: 'User',
-      email: 'admin@test.com',
-      password: 'admin123',
-      role: 'admin',
-      position: 'System Administrator',
-      employeeId: 'ADM001'
-    };
+        // First create a temporary admin user without department
+        const tempAdminUser = new User({
+            firstName: 'Admin',
+            lastName: 'User',
+            email: 'admin@test.com',
+            password: await bcrypt.hash('admin123', 10),
+            role: 'admin',
+            employeeId: 'ADMIN001',
+            position: 'System Administrator'
+        });
+        // Save without validation to bypass department requirement temporarily
+        const adminUser = await tempAdminUser.save({ validateBeforeSave: false });
+        console.log('- Temporary Admin User created:', adminUser.email);
 
-    let adminUser = await User.findOne({ email: adminData.email });
-    if (!adminUser) {
-      adminUser = await User.create(adminData);
-      console.log('Created admin user:', adminUser.email);
-    } else {
-      console.log('Admin user already exists');
+        // Create IT Department with the admin as manager
+        const itDepartment = await Department.create({
+            name: 'IT Department',
+            code: 'IT',
+            description: 'Information Technology Department',
+            manager: adminUser._id
+        });
+        console.log('- IT Department created:', itDepartment.name);
+
+        // Update admin user with department
+        adminUser.department = itDepartment._id;
+        await adminUser.save();
+        console.log('- Admin User updated with department');
+
+        // Create Manager User
+        const managerUser = await User.create({
+            firstName: 'Manager',
+            lastName: 'User',
+            email: 'manager@test.com',
+            password: await bcrypt.hash('manager123', 10),
+            role: 'manager',
+            employeeId: 'MGR001',
+            position: 'IT Manager',
+            department: itDepartment._id
+        });
+        console.log('- Manager User created:', managerUser.email);
+
+        // Create Employee User
+        const employeeUser = await User.create({
+            firstName: 'Employee',
+            lastName: 'User',
+            email: 'employee@test.com',
+            password: await bcrypt.hash('employee123', 10),
+            role: 'employee',
+            employeeId: 'EMP001',
+            position: 'Software Developer',
+            department: itDepartment._id
+        });
+        console.log('- Employee User created:', employeeUser.email);
+
+        console.log('Database initialized successfully!');
+
+    } catch (error) {
+        console.error('Error initializing database:', error);
+    } finally {
+        await mongoose.disconnect();
+        console.log('Disconnected from MongoDB');
     }
+}
 
-    // Then create department with admin as manager
-    let department = await Department.findOne({ code: 'IT' });
-    if (!department) {
-      department = await Department.create({
-        name: 'Information Technology',
-        code: 'IT',
-        description: 'IT Department',
-        location: {
-          building: 'Main Building',
-          floor: '3rd Floor',
-          room: '304'
-        },
-        defaultWorkingHours: {
-          start: '09:00',
-          end: '17:00',
-          timezone: 'UTC'
-        },
-        manager: adminUser._id  // Set admin as manager
-      });
-      console.log('Default department created:', department.name);
-    }
-
-    // Update admin user with department
-    adminUser.department = department._id;
-    await adminUser.save();
-
-    // Create other test users
-    const otherUsers = [
-      {
-        firstName: 'Test',
-        lastName: 'Manager',
-        email: 'manager@test.com',
-        password: 'manager123',
-        role: 'manager',
-        department: department._id,
-        position: 'Engineering Manager',
-        employeeId: 'MGR001'
-      },
-      {
-        firstName: 'Test',
-        lastName: 'Employee',
-        email: 'employee@test.com',
-        password: 'employee123',
-        role: 'employee',
-        department: department._id,
-        position: 'Software Developer',
-        employeeId: 'EMP001'
-      }
-    ];
-
-    // Create remaining users if they don't exist
-    for (const userData of otherUsers) {
-      let user = await User.findOne({ email: userData.email });
-      if (!user) {
-        user = await User.create(userData);
-        console.log(`Created user: ${user.email} (${user.role})`);
-      } else {
-        console.log(`User already exists: ${user.email}`);
-      }
-    }
-
-    console.log('\nDatabase initialization completed successfully!');
-    console.log('\nTest Credentials:');
-    console.log('------------------');
-    console.log('\nADMIN User:');
-    console.log(`Email: ${adminData.email}`);
-    console.log(`Password: ${adminData.password}`);
-    
-    otherUsers.forEach(user => {
-      console.log(`\n${user.role.toUpperCase()} User:`);
-      console.log(`Email: ${user.email}`);
-      console.log(`Password: ${user.password}`);
-    });
-
-  } catch (error) {
-    console.error('Error initializing database:', error);
-  } finally {
-    // Close the database connection
-    await mongoose.connection.close();
-    console.log('\nDatabase connection closed.');
-  }
-};
-
-// Run the initialization
 initializeDb(); 

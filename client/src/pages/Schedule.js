@@ -38,6 +38,9 @@ import {
   TableBody,
   TableCell,
   TableRow,
+  List,
+  ListItem,
+  ListItemText,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -58,13 +61,15 @@ import {
   FileDownload as FileDownloadIcon,
   RadioButtonChecked as RadioButtonChecked,
   Preview as PreviewIcon,
+  History as HistoryIcon,
+  SwapHoriz as SwapHorizIcon,
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { TimePicker } from '@mui/x-date-pickers/TimePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterMoment } from '@mui/x-date-pickers/AdapterMoment';
 import moment from 'moment';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../contexts/AuthContext';
 import { getMySchedules, createSchedule, updateSchedule, deleteSchedule } from '../services/scheduleService';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
@@ -75,10 +80,14 @@ import {
   calculateWorkingHours,
   checkWorkingHoursLimit 
 } from '../utils/scheduleValidation';
+import ShiftSwapHistory from '../components/ShiftSwapHistory';
+import ManagerSwapApproval from '../components/ManagerSwapApproval';
+import ShiftSwap from '../components/ShiftSwap';
+import EmployeeShiftSwapButton from '../components/EmployeeShiftSwapButton';
 
 const Schedule = () => {
   const baseTheme = useTheme();
-  const { isAdmin, isManager } = useAuth();
+  const { isAdmin, isManager, user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [schedules, setSchedules] = useState([]);
   const [openDialog, setOpenDialog] = useState(false);
@@ -86,6 +95,9 @@ const Schedule = () => {
   const [selectedSchedule, setSelectedSchedule] = useState(null);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedEmployee, setSelectedEmployee] = useState('');
+  const [selectedDepartment, setSelectedDepartment] = useState('');
+  const [selectedType, setSelectedType] = useState('');
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
   const [formData, setFormData] = useState({
     startDate: moment(),
@@ -115,6 +127,11 @@ const Schedule = () => {
   const [validationErrors, setValidationErrors] = useState([]);
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [showSwapHistory, setShowSwapHistory] = useState(false);
+  const [scheduleOptionsOpen, setScheduleOptionsOpen] = useState(false);
+  const [selectedScheduleForSwap, setSelectedScheduleForSwap] = useState(null);
+  const [shiftSwapDialogOpen, setShiftSwapDialogOpen] = useState(false);
+  const [shiftSwapHistoryOpen, setShiftSwapHistoryOpen] = useState(false);
 
   const customTheme = {
     palette: {
@@ -209,6 +226,14 @@ const Schedule = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError(null);
+    setValidationErrors([]);
+    
+    // Check if user is employee and show error
+    if (user.role === 'employee') {
+      showNotification('Only managers and administrators can create or edit schedules', 'error');
+      return;
+    }
     
     // Validate the schedule
     const errors = validateSchedule(formData, schedules);
@@ -291,27 +316,66 @@ const Schedule = () => {
   };
 
   const handleEdit = (schedule) => {
-    setSelectedSchedule(schedule);
-    setFormData({
-      startDate: moment(schedule.startDate),
-      endDate: moment(schedule.endDate),
-      startTime: moment(schedule.startTime, 'HH:mm'),
-      endTime: moment(schedule.endTime, 'HH:mm'),
-      type: schedule.type,
-      notes: schedule.notes || '',
-      days: schedule.days
-    });
-    setOpenDialog(true);
+    if (user.role === 'employee') {
+      setSelectedSchedule(schedule);
+      setScheduleOptionsOpen(true);
+    } else {
+      setSelectedSchedule(schedule);
+      setFormData({
+        startDate: moment(schedule.startDate),
+        endDate: moment(schedule.endDate),
+        startTime: moment(schedule.startTime, 'HH:mm'),
+        endTime: moment(schedule.endTime, 'HH:mm'),
+        type: schedule.type,
+        notes: schedule.notes || '',
+        days: schedule.days
+      });
+      setOpenDialog(true);
+    }
+  };
+
+  const handleRequestShiftSwap = (schedule) => {
+    setSelectedScheduleForSwap(schedule);
+    setShiftSwapDialogOpen(true);
+    setScheduleOptionsOpen(false);
   };
 
   const showNotification = (message, severity = 'success') => {
     setNotification({ open: true, message, severity });
   };
 
-  const filteredSchedules = schedules.filter(schedule => 
-    schedule.notes?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    schedule.type.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredSchedules = schedules
+    .filter((schedule) => {
+      // Filter by selected employee if specified
+      if (selectedEmployee && schedule.user?._id !== selectedEmployee) {
+        return false;
+      }
+
+      // Filter by selected department if specified
+      if (selectedDepartment && schedule.department?._id !== selectedDepartment) {
+        return false;
+      }
+
+      // Filter by selected type if specified
+      if (selectedType && schedule.type !== selectedType) {
+        return false;
+      }
+
+      // Filter by search term
+      if (searchTerm) {
+        const term = searchTerm.toLowerCase();
+        return (
+          schedule.user?.firstName?.toLowerCase().includes(term) ||
+          schedule.user?.lastName?.toLowerCase().includes(term) ||
+          schedule.department?.name?.toLowerCase().includes(term) ||
+          schedule.notes?.toLowerCase().includes(term) ||
+          schedule.type?.toLowerCase().includes(term)
+        );
+      }
+
+      return true;
+    })
+    .sort((a, b) => moment(a.startDate).diff(moment(b.startDate)));
 
   const handleDateClick = (date) => {
     setExpandedDate(expandedDate === date.format('YYYY-MM-DD') ? null : date.format('YYYY-MM-DD'));
@@ -1578,7 +1642,7 @@ const Schedule = () => {
                   mb: 1
                 }}
               >
-                Work Schedule
+                Schedule Management
               </Typography>
               <Typography 
                 variant="subtitle1" 
@@ -1666,13 +1730,18 @@ const Schedule = () => {
           </CardContent>
         </Card>
 
+        {user.role === 'employee' && (
+          <Alert severity="info" sx={{ mb: 3 }}>
+            As an employee, you can view schedules but only managers and administrators can create or edit them. You can request shift swaps for your assigned schedules.
+          </Alert>
+        )}
+
         <Card sx={{ 
           background: 'transparent',
           backdropFilter: 'blur(10px)',
           bgcolor: alpha(customTheme.palette.background.paper, 0.8),
           borderRadius: 4,
           boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.15)',
-          border: '1px solid rgba(255, 255, 255, 0.18)',
           overflow: 'hidden'
         }}>
           <CardContent>
@@ -1782,9 +1851,7 @@ const Schedule = () => {
             justifyContent: 'space-between',
             alignItems: 'center'
           }}>
-            <Typography variant="h6" sx={{ fontWeight: 600 }}>
-              {selectedSchedule ? 'Edit Schedule' : 'New Schedule'}
-            </Typography>
+            {selectedSchedule ? 'Edit Schedule' : 'New Schedule'}
             <IconButton onClick={() => {
               setOpenDialog(false);
               resetForm();
@@ -2229,6 +2296,94 @@ const Schedule = () => {
             </Button>
           </DialogActions>
         </Dialog>
+
+        <Button
+          onClick={() => setShowSwapHistory(true)}
+          startIcon={<HistoryIcon />}
+        >
+          Swap History
+        </Button>
+
+        <Dialog
+          open={showSwapHistory}
+          onClose={() => setShowSwapHistory(false)}
+          maxWidth="md"
+          fullWidth
+        >
+          <DialogTitle>Shift Swap History</DialogTitle>
+          <DialogContent>
+            <ShiftSwapHistory />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setShowSwapHistory(false)}>
+              Close
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Schedule Options Dialog for Employees */}
+        <Dialog
+          open={scheduleOptionsOpen}
+          onClose={() => setScheduleOptionsOpen(false)}
+          maxWidth="xs"
+          fullWidth
+        >
+          <DialogTitle>Schedule Options</DialogTitle>
+          <List>
+            <ListItem button onClick={() => {
+              handleRequestShiftSwap(selectedSchedule);
+            }}>
+              <ListItemIcon>
+                <SwapHorizIcon />
+              </ListItemIcon>
+              <ListItemText primary="Request Shift Swap" />
+            </ListItem>
+            <ListItem button onClick={() => {
+              setScheduleOptionsOpen(false);
+              setShiftSwapHistoryOpen(true);
+            }}>
+              <ListItemIcon>
+                <HistoryIcon />
+              </ListItemIcon>
+              <ListItemText primary="View Shift Swap History" />
+            </ListItem>
+          </List>
+          <DialogActions>
+            <Button onClick={() => setScheduleOptionsOpen(false)}>Cancel</Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Shift Swap Dialog */}
+        <ShiftSwap
+          open={shiftSwapDialogOpen}
+          onClose={() => setShiftSwapDialogOpen(false)}
+          schedule={selectedScheduleForSwap}
+        />
+
+        {/* Shift Swap History Dialog */}
+        <Dialog
+          open={shiftSwapHistoryOpen}
+          onClose={() => setShiftSwapHistoryOpen(false)}
+          maxWidth="md"
+          fullWidth
+        >
+          <DialogTitle>Shift Swap History</DialogTitle>
+          <DialogContent>
+            <ShiftSwapHistory />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setShiftSwapHistoryOpen(false)}>Close</Button>
+          </DialogActions>
+        </Dialog>
+
+        {['admin', 'manager'].includes(user.role) && (
+          <Box mt={3}>
+            <Typography variant="h5" gutterBottom>
+              Shift Swap Management
+            </Typography>
+            <ManagerSwapApproval />
+          </Box>
+        )}
       </Container>
     </Box>
   );

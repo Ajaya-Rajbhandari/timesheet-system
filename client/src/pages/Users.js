@@ -24,7 +24,7 @@ import {
   TableRow
 } from '@mui/material';
 import { Add as AddIcon, Edit as EditIcon } from '@mui/icons-material';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../contexts/AuthContext';
 import { getUsers, createUser, updateUser } from '../services/userService';
 
 const Users = () => {

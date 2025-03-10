@@ -18,19 +18,27 @@ const attendanceRoutes = require('./routes/attendance');
 const scheduleRoutes = require('./routes/schedules');
 const timeOffRoutes = require('./routes/timeoff');
 const reportRoutes = require('./routes/reports');
+const shiftSwapRoutes = require('./routes/shiftSwap.js');
 
 // Initialize express app
 const app = express();
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-auth-token']
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true })
-  .then(() => console.log('MongoDB connected...'))
-  .catch(err => console.error('MongoDB connection error:', err));
+// Connect to MongoDB (only if not in test environment)
+if (process.env.NODE_ENV !== 'test') {
+  mongoose.connect(process.env.MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+    .then(() => console.log('MongoDB connected...'))
+    .catch(err => console.error('MongoDB connection error:', err));
+}
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -39,6 +47,7 @@ app.use('/api/attendance', attendanceRoutes);
 app.use('/api/schedules', scheduleRoutes);
 app.use('/api/timeoff', timeOffRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/shift-swaps', shiftSwapRoutes);
 
 // Serve static assets in production
 if (process.env.NODE_ENV === 'production') {
@@ -55,8 +64,10 @@ app.use((err, req, res, next) => {
   res.status(500).json({ message: 'Something went wrong on the server' });
 });
 
-// Start server
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+// Start server only if not in test environment
+if (process.env.NODE_ENV !== 'test') {
+  const PORT = process.env.PORT || 5000;
+  app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+}
 
 module.exports = app;

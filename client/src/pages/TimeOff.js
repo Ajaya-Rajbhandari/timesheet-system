@@ -41,7 +41,7 @@ import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterMoment } from '@mui/x-date-pickers/AdapterMoment';
 import moment from 'moment';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../contexts/AuthContext';
 import { 
   createTimeOffRequest, 
   getMyTimeOffRequests, 

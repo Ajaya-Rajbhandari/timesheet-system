@@ -4,7 +4,7 @@ import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterMoment } from '@mui/x-date-pickers/AdapterMoment';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { CustomThemeProvider } from './context/ThemeContext';
 import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
@@ -14,6 +14,7 @@ import TimeOff from './pages/TimeOff';
 import Schedule from './pages/Schedule';
 import Users from './pages/Users';
 import Attendance from './pages/Attendance';
+import ShiftSwaps from './pages/ShiftSwaps';
 import Layout from './components/Layout/Layout';
 import './App.css';
 
@@ -45,13 +46,13 @@ const theme = createTheme({
 
 // Protected route component
 const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated, loading } = useAuth();
+  const { user, loading } = useAuth();
   
   if (loading) {
     return <div>Loading...</div>;
   }
   
-  if (!isAuthenticated) {
+  if (!user) {
     return <Navigate to="/login" />;
   }
   
@@ -78,6 +79,7 @@ function App() {
                 <Route path="/timeoff" element={<TimeOff />} />
                 <Route path="/reports" element={<Reports />} />
                 <Route path="/users" element={<Users />} />
+                <Route path="/shift-swaps" element={<ShiftSwaps />} />
               </Route>
             </Routes>
           </Router>

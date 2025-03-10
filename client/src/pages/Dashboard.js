@@ -34,7 +34,7 @@ import {
   Work as WorkIcon
 } from '@mui/icons-material';
 import moment from 'moment';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../contexts/AuthContext';
 import { getCurrentStatus } from '../services/attendanceService';
 import { getMyTimeOffRequests } from '../services/timeOffService';
 import { getMySchedules } from '../services/scheduleService';

@@ -34,7 +34,7 @@ import {
   Brightness4 as DarkModeIcon,
   Brightness7 as LightModeIcon,
 } from '@mui/icons-material';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { useTheme as useCustomTheme } from '../../context/ThemeContext';
 import Sidebar from './Sidebar';
 import { styled } from '@mui/material/styles';
@@ -198,6 +198,27 @@ const Layout = () => {
           </Box>
         </Toolbar>
       </AppBar>
+      
+      {/* Profile Menu */}
+      <Menu
+        anchorEl={anchorEl}
+        open={Boolean(anchorEl)}
+        onClose={handleProfileMenuClose}
+        onClick={handleProfileMenuClose}
+      >
+        <MenuItem onClick={() => navigate('/profile')}>
+          <ListItemIcon>
+            <PersonIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>Profile</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={handleLogout}>
+          <ListItemIcon>
+            <LogoutIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>Logout</ListItemText>
+        </MenuItem>
+      </Menu>
       
       <Box
         component="nav"

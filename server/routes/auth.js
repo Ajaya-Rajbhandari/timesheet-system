@@ -38,7 +38,7 @@ router.post('/register', async (req, res) => {
     // Check if user already exists
     let user = await User.findOne({ email });
     if (user) {
-      return res.status(400).json({ message: 'User with this email already exists' });
+      return res.status(400).json({ message: 'User already exists' });
     }
 
     // Check if employee ID is already in use
@@ -80,7 +80,7 @@ router.post('/register', async (req, res) => {
     // Sign token
     const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1d' });
 
-    res.json({
+    res.status(201).json({
       token,
       user: {
         id: user.id,
@@ -127,7 +127,7 @@ router.post('/login', async (req, res) => {
     console.log('User found:', !!user);
     
     if (!user) {
-      return res.status(400).json({ message: 'Invalid email or password' });
+      return res.status(401).json({ message: 'Invalid credentials' });
     }
 
     // Check if user is active
@@ -148,7 +148,7 @@ router.post('/login', async (req, res) => {
     console.log('Password match:', isMatch);
     
     if (!isMatch) {
-      return res.status(400).json({ message: 'Invalid email or password' });
+      return res.status(401).json({ message: 'Invalid credentials' });
     }
 
     // Update last login time

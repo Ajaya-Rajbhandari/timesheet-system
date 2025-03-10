@@ -14,7 +14,7 @@ import {
   Divider
 } from '@mui/material';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../contexts/AuthContext';
 
 const Login = () => {
   const [formData, setFormData] = useState({
@@ -46,9 +46,13 @@ const Login = () => {
       setLoading(true);
       setError(null);
       
-      await login(email, password);
+      console.log('Submitting login form with:', { email });
+      const user = await login(email, password);
+      console.log('Login successful, user:', user);
+      console.log('Navigating to dashboard...');
       navigate('/');
     } catch (err) {
+      console.error('Login component error:', err);
       setError(err.response?.data?.message || 'Login failed. Please check your credentials.');
     } finally {
       setLoading(false);
