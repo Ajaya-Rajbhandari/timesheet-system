@@ -17,12 +17,22 @@ const ScheduleSchema = new mongoose.Schema({
   startTime: {
     type: String,
     required: true,
-    match: [/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Please enter a valid time (HH:MM)']
+    validate: {
+      validator: function(v) {
+        return /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(v);
+      },
+      message: props => `${props.value} is not a valid time format. Use HH:mm format (e.g., 09:00)`
+    }
   },
   endTime: {
     type: String,
     required: true,
-    match: [/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Please enter a valid time (HH:MM)']
+    validate: {
+      validator: function(v) {
+        return /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(v);
+      },
+      message: props => `${props.value} is not a valid time format. Use HH:mm format (e.g., 09:00)`
+    }
   },
   days: {
     type: [String],
@@ -34,7 +44,7 @@ const ScheduleSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['regular', 'overtime', 'special'],
+    enum: ['regular', 'overtime', 'flexible', 'remote'],
     default: 'regular'
   },
   notes: {
@@ -48,8 +58,7 @@ const ScheduleSchema = new mongoose.Schema({
   },
   department: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Department',
-    required: true
+    ref: 'Department'
   },
   isActive: {
     type: Boolean,

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Container, 
   Grid, 
@@ -25,7 +25,7 @@ import {
 } from '@mui/material';
 import { Add as AddIcon, Edit as EditIcon } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
-import { getUsers, createUser, updateUser } from '../services/userService';
+import { fetchUsers, createUser, updateUser, deleteUser } from '../services/userService';
 
 const Users = () => {
   const { user } = useAuth();
@@ -43,25 +43,28 @@ const Users = () => {
     position: ''
   });
 
-  const fetchUsers = async () => {
+  const isAdmin = user?.role === 'admin';
+  const isManager = user?.role === 'manager';
+
+  const loadUsers = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await getUsers();
+      const data = await fetchUsers();
       setUsers(data);
-      setError(null);
     } catch (err) {
-      console.error('Error fetching users:', err);
-      setError('Failed to load users');
+      console.error('Error loading users:', err);
+      setError('Error loading users');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    if (user?.role === 'admin') {
-      fetchUsers();
+    // Only admin and managers can view users list
+    if (isAdmin || isManager) {
+      loadUsers();
     }
-  }, [user]);
+  }, [loadUsers, isAdmin, isManager]);
 
   const handleDialogOpen = (user = null) => {
     if (user) {
@@ -97,7 +100,7 @@ const Users = () => {
       } else {
         await createUser(currentUser);
       }
-      fetchUsers();
+      loadUsers();
       handleDialogClose();
     } catch (err) {
       console.error('Error submitting user:', err);
@@ -123,7 +126,7 @@ const Users = () => {
         <Typography color="error" variant="h6" sx={{ mb: 2 }}>
           {error}
         </Typography>
-        <Button onClick={fetchUsers} variant="contained">
+        <Button onClick={loadUsers} variant="contained">
           Retry
         </Button>
       </Container>

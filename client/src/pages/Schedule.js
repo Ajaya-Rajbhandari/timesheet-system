@@ -5,99 +5,59 @@ import {
   Box,
   Card,
   CardContent,
-  Grid,
-  Chip,
-  CircularProgress,
-  Stack,
-  useTheme,
-  alpha,
   Button,
+  IconButton,
+  Stack,
   TextField,
+  MenuItem,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  IconButton,
-  MenuItem,
-  Alert,
-  Paper,
-  Snackbar,
-  useMediaQuery,
+  Chip,
   Tooltip,
-  InputAdornment,
-  Badge,
-  Fade,
-  ToggleButton,
-  ToggleButtonGroup,
-  Zoom,
-  Menu,
-  ListItemIcon,
-  Divider,
-  Table,
-  TableHead,
-  TableBody,
-  TableCell,
-  TableRow,
-  List,
-  ListItem,
-  ListItemText,
+  Paper,
+  Grid,
+  Snackbar,
+  Alert,
+  useTheme,
+  alpha
 } from '@mui/material';
 import {
   Add as AddIcon,
-  Close as CloseIcon,
-  CalendarMonth as CalendarIcon,
-  AccessTime as TimeIcon,
-  Search as SearchIcon,
-  NavigateBefore as PrevIcon,
-  NavigateNext as NextIcon,
-  Info as InfoIcon,
-  ViewDay as DayViewIcon,
-  ViewWeek as WeekViewIcon,
-  ViewModule as MonthViewIcon,
-  ViewList as ListViewIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
-  Download as DownloadIcon,
-  FileDownload as FileDownloadIcon,
-  RadioButtonChecked as RadioButtonChecked,
-  Preview as PreviewIcon,
-  History as HistoryIcon,
-  SwapHoriz as SwapHorizIcon,
+  CalendarMonth as CalendarIcon
 } from '@mui/icons-material';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { TimePicker } from '@mui/x-date-pickers/TimePicker';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterMoment } from '@mui/x-date-pickers/AdapterMoment';
 import moment from 'moment';
 import { useAuth } from '../contexts/AuthContext';
-import { getMySchedules, getSchedules, createSchedule, updateSchedule, deleteSchedule } from '../services/scheduleService';
-import * as XLSX from 'xlsx';
-import { saveAs } from 'file-saver';
 import { 
-  validateSchedule, 
-  findScheduleConflicts, 
-  suggestAlternativeSchedules,
-  calculateWorkingHours,
-  checkWorkingHoursLimit 
-} from '../utils/scheduleValidation';
-import ShiftSwapHistory from '../components/ShiftSwapHistory';
-import ManagerSwapApproval from '../components/ManagerSwapApproval';
-import ShiftSwap from '../components/ShiftSwap';
-import EmployeeShiftSwapButton from '../components/EmployeeShiftSwapButton';
+  createSchedule, 
+  updateSchedule,
+  fetchUserSchedules,
+  fetchDepartmentSchedules,
+  fetchAllSchedules,
+  deleteSchedule,
+  getMySchedules
+} from '../services/scheduleService';
+import { fetchUsers } from '../services/userService';
+import { validateSchedule, suggestAlternativeSchedules } from '../utils/scheduleValidation';
 
 const Schedule = () => {
-  const baseTheme = useTheme();
-  const { isAdmin, isManager, user } = useAuth();
+  const theme = useTheme();
+  const { user, isAdmin, isManager } = useAuth();
+  const hasEditPermission = isAdmin || isManager;
+
   const [loading, setLoading] = useState(true);
   const [schedules, setSchedules] = useState([]);
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedDate, setSelectedDate] = useState(moment());
   const [selectedSchedule, setSelectedSchedule] = useState(null);
   const [error, setError] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedEmployee, setSelectedEmployee] = useState('');
-  const [selectedDepartment, setSelectedDepartment] = useState('');
-  const [selectedType, setSelectedType] = useState('');
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
   const [formData, setFormData] = useState({
     startDate: moment(),
@@ -108,185 +68,152 @@ const Schedule = () => {
     notes: '',
     days: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
   });
-  const [expandedDate, setExpandedDate] = useState(null);
-  const [draggedSchedule, setDraggedSchedule] = useState(null);
-  const [hoveredDate, setHoveredDate] = useState(null);
-  const [viewMode, setViewMode] = useState('month');
-  const [selectedDay, setSelectedDay] = useState(moment());
-  const [selectedWeek, setSelectedWeek] = useState(moment().startOf('week'));
-  const [exportAnchorEl, setExportAnchorEl] = useState(null);
-  const [exportPeriod, setExportPeriod] = useState('current');
-  const [previewData, setPreviewData] = useState(null);
-  const [previewOpen, setPreviewOpen] = useState(false);
-  const [exportFormat, setExportFormat] = useState('csv');
-  const [customDateRange, setCustomDateRange] = useState({
-    startDate: moment(),
-    endDate: moment()
-  });
-  const [customRangeOpen, setCustomRangeOpen] = useState(false);
   const [validationErrors, setValidationErrors] = useState([]);
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [showSwapHistory, setShowSwapHistory] = useState(false);
-  const [scheduleOptionsOpen, setScheduleOptionsOpen] = useState(false);
-  const [selectedScheduleForSwap, setSelectedScheduleForSwap] = useState(null);
-  const [shiftSwapDialogOpen, setShiftSwapDialogOpen] = useState(false);
-  const [shiftSwapHistoryOpen, setShiftSwapHistoryOpen] = useState(false);
+  const [viewType, setViewType] = useState('my-schedule');
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [users, setUsers] = useState([]);
+  const [selectedDepartment, setSelectedDepartment] = useState('');
 
-  const customTheme = {
-    palette: {
-      mode: 'light',
-      primary: {
-        main: '#2196F3',
-        dark: '#1565C0',
-        light: '#64B5F6',
-      },
-      secondary: {
-        main: '#21CBF3',
-        dark: '#0097A7',
-        light: '#80DEEA',
-      },
-      background: {
-        default: '#f5f7fa',
-        paper: '#ffffff',
-      },
-      text: {
-        primary: '#000000',
-        secondary: '#666666',
-      },
-      grey: {
-        900: '#212121',
-        800: '#424242',
-        700: '#616161',
-        600: '#757575',
-        500: '#9e9e9e',
-        400: '#bdbdbd',
-        300: '#e0e0e0',
-        200: '#eeeeee',
-        100: '#f5f5f5',
-        50: '#fafafa',
-      },
-    },
-    components: {
-      MuiCard: {
-        styleOverrides: {
-          root: {
-            background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(240, 240, 240, 0.9))',
-            backdropFilter: 'blur(10px)',
-            border: '1px solid rgba(0, 0, 0, 0.1)',
-          },
-        },
-      },
-      MuiPaper: {
-        styleOverrides: {
-          root: {
-            backgroundImage: 'none',
-          },
-        },
-      },
-    },
+  const showNotification = (message, severity = 'success') => {
+    setNotification({
+      open: true,
+      message,
+      severity
+    });
   };
 
-  const scheduleTypes = [
-    { value: 'regular', label: 'Regular Shift' },
-    { value: 'overtime', label: 'Overtime' },
-    { value: 'flexible', label: 'Flexible Hours' },
-    { value: 'remote', label: 'Remote Work' }
-  ];
-
-  const weekDays = [
-    { value: 'monday', label: 'Monday' },
-    { value: 'tuesday', label: 'Tuesday' },
-    { value: 'wednesday', label: 'Wednesday' },
-    { value: 'thursday', label: 'Thursday' },
-    { value: 'friday', label: 'Friday' },
-    { value: 'saturday', label: 'Saturday' },
-    { value: 'sunday', label: 'Sunday' }
-  ];
-
-  const fetchSchedules = useCallback(async () => {
-    try {
-      setLoading(true);
-      const startOfMonth = moment(selectedDate).startOf('month');
-      const endOfMonth = moment(selectedDate).endOf('month');
-      
-      let data;
-      if (isAdmin || isManager) {
-        // Admin/managers can see all schedules
-        data = await getSchedules(startOfMonth.format('YYYY-MM-DD'), endOfMonth.format('YYYY-MM-DD'));
-      } else {
-        // Regular employees can only see their own schedules
-        data = await getMySchedules(startOfMonth.format('YYYY-MM-DD'), endOfMonth.format('YYYY-MM-DD'));
-      }
-      
-      setSchedules(data);
-      setError(null);
-    } catch (err) {
-      setError('Failed to load schedules');
-      console.error('Error fetching schedules:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedDate, isAdmin, isManager]);
-
-  useEffect(() => {
-    fetchSchedules();
-  }, [fetchSchedules]);
+  const handleNotificationClose = () => {
+    setNotification(prev => ({
+      ...prev,
+      open: false
+    }));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
     setValidationErrors([]);
     
-    // Check if user is employee and show error
-    if (user.role === 'employee') {
+    if (!hasEditPermission) {
       showNotification('Only managers and administrators can create or edit schedules', 'error');
+      setOpenDialog(false);
       return;
-    }
-    
-    // Validate the schedule
-    const errors = validateSchedule(formData, schedules);
-    setValidationErrors(errors);
-
-    if (errors.length > 0) {
-      // If there are conflicts, generate suggestions
-      if (errors.some(error => error.conflicts)) {
-        const newSuggestions = suggestAlternativeSchedules(formData, schedules);
-        setSuggestions(newSuggestions);
-        setShowSuggestions(true);
-        return;
-      }
-      return;
-    }
-
-    // Check working hours limit
-    if (checkWorkingHoursLimit(formData)) {
-      if (!window.confirm('This schedule exceeds 40 hours per week. Do you want to proceed?')) {
-        return;
-      }
     }
 
     try {
       setLoading(true);
+      const formattedData = {
+        startDate: formData.startDate.format('YYYY-MM-DD'),
+        endDate: formData.endDate.format('YYYY-MM-DD'),
+        startTime: formData.startTime.format('HH:mm'),
+        endTime: formData.endTime.format('HH:mm'),
+        type: formData.type,
+        days: formData.days,
+        notes: formData.notes
+      };
+
       if (selectedSchedule) {
-        await updateSchedule(selectedSchedule._id, formData);
-        showNotification('Schedule updated successfully');
+        await updateSchedule(selectedSchedule._id, formattedData);
+        showNotification('Schedule updated successfully', 'success');
       } else {
-        await createSchedule(formData);
-        showNotification('Schedule created successfully');
+        await createSchedule(formattedData);
+        showNotification('Schedule created successfully', 'success');
       }
-      await fetchSchedules();
+
+      await fetchScheduleData();
       setOpenDialog(false);
       setSelectedSchedule(null);
       resetForm();
-      setError(null);
     } catch (err) {
-      setError('Failed to save schedule');
-      showNotification('Failed to save schedule', 'error');
-      console.error('Error saving schedule:', err);
+      console.error('Failed to save schedule:', err);
+      showNotification(err.message || 'Failed to save schedule', 'error');
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchScheduleData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const startOfMonth = moment(selectedDate).startOf('month');
+      const endOfMonth = moment(selectedDate).endOf('month');
+      
+      let data;
+      switch (viewType) {
+        case 'all':
+          if (isAdmin || isManager) {
+            data = await fetchAllSchedules(startOfMonth.format('YYYY-MM-DD'), endOfMonth.format('YYYY-MM-DD'));
+          }
+          break;
+        case 'department':
+          if ((isAdmin || isManager) && selectedDepartment) {
+            data = await fetchDepartmentSchedules(selectedDepartment, startOfMonth.format('YYYY-MM-DD'), endOfMonth.format('YYYY-MM-DD'));
+          }
+          break;
+        case 'user':
+          if ((isAdmin || isManager) && selectedUser) {
+            data = await fetchUserSchedules(selectedUser, startOfMonth.format('YYYY-MM-DD'), endOfMonth.format('YYYY-MM-DD'));
+          }
+          break;
+        case 'my-schedule':
+        default:
+          // Use getMySchedules instead of fetchUserSchedules for current user
+          data = await getMySchedules(startOfMonth.format('YYYY-MM-DD'), endOfMonth.format('YYYY-MM-DD'));
+          break;
+      }
+      
+      setSchedules(data || []);
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching schedules:', err);
+      setError(err.response?.data?.message || 'Failed to load schedules');
+      showNotification(err.response?.data?.message || 'Failed to load schedules', 'error');
+      setSchedules([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedDate, viewType, selectedDepartment, selectedUser, isAdmin, isManager]);
+
+  useEffect(() => {
+    fetchScheduleData();
+  }, [fetchScheduleData]);
+
+  const handleDelete = async (id) => {
+    if (!hasEditPermission) {
+      showNotification('Only managers and administrators can delete schedules', 'error');
+      return;
+    }
+    
+    if (window.confirm('Are you sure you want to delete this schedule?')) {
+      try {
+        await deleteSchedule(id);
+        await fetchScheduleData();
+        showNotification('Schedule deleted successfully', 'success');
+      } catch (err) {
+        showNotification('Failed to delete schedule', 'error');
+        console.error('Error deleting schedule:', err);
+      }
+    }
+  };
+
+  const handleEdit = (schedule) => {
+    if (!hasEditPermission) {
+      showNotification('Only managers and administrators can edit schedules', 'error');
+      return;
+    }
+    setSelectedSchedule(schedule);
+    setFormData({
+      startDate: moment(schedule.startDate),
+      endDate: moment(schedule.endDate),
+      startTime: moment(schedule.startTime, 'HH:mm'),
+      endTime: moment(schedule.endTime, 'HH:mm'),
+      type: schedule.type,
+      notes: schedule.notes || '',
+      days: schedule.days
+    });
+    setOpenDialog(true);
   };
 
   const resetForm = () => {
@@ -299,1808 +226,235 @@ const Schedule = () => {
       notes: '',
       days: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
     });
-    setValidationErrors([]);
-    setSuggestions([]);
-    setShowSuggestions(false);
+    setSelectedSchedule(null);
   };
 
-  const handleSuggestionSelect = (suggestion) => {
-    setFormData(suggestion.schedule);
-    setShowSuggestions(false);
-    setValidationErrors([]);
-  };
-
-  const handleDelete = async (id) => {
-    try {
-      setLoading(true);
-      await deleteSchedule(id);
-      await fetchSchedules();
-      setError(null);
-    } catch (err) {
-      setError('Failed to delete schedule');
-      console.error('Error deleting schedule:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleEdit = (schedule) => {
-    if (user.role === 'employee') {
-      setSelectedSchedule(schedule);
-      setScheduleOptionsOpen(true);
-    } else {
-      setSelectedSchedule(schedule);
-      setFormData({
-        startDate: moment(schedule.startDate),
-        endDate: moment(schedule.endDate),
-        startTime: moment(schedule.startTime, 'HH:mm'),
-        endTime: moment(schedule.endTime, 'HH:mm'),
-        type: schedule.type,
-        notes: schedule.notes || '',
-        days: schedule.days
-      });
-      setOpenDialog(true);
-    }
-  };
-
-  const handleRequestShiftSwap = (schedule) => {
-    setSelectedScheduleForSwap(schedule);
-    setShiftSwapDialogOpen(true);
-    setScheduleOptionsOpen(false);
-  };
-
-  const showNotification = (message, severity = 'success') => {
-    setNotification({ open: true, message, severity });
-  };
-
-  const filteredSchedules = schedules
-    .filter((schedule) => {
-      // Filter by selected employee if specified
-      if (selectedEmployee && schedule.user?._id !== selectedEmployee) {
-        return false;
-      }
-
-      // Filter by selected department if specified
-      if (selectedDepartment && schedule.department?._id !== selectedDepartment) {
-        return false;
-      }
-
-      // Filter by selected type if specified
-      if (selectedType && schedule.type !== selectedType) {
-        return false;
-      }
-
-      // Filter by search term
-      if (searchTerm) {
-        const term = searchTerm.toLowerCase();
-        return (
-          schedule.user?.firstName?.toLowerCase().includes(term) ||
-          schedule.user?.lastName?.toLowerCase().includes(term) ||
-          schedule.department?.name?.toLowerCase().includes(term) ||
-          schedule.notes?.toLowerCase().includes(term) ||
-          schedule.type?.toLowerCase().includes(term)
-        );
-      }
-
-      return true;
-    })
-    .sort((a, b) => moment(a.startDate).diff(moment(b.startDate)));
-
-  const handleDateClick = (date) => {
-    setExpandedDate(expandedDate === date.format('YYYY-MM-DD') ? null : date.format('YYYY-MM-DD'));
-  };
-
-  const isWeekend = (date) => {
-    const day = date.day();
-    return day === 0 || day === 6;
-  };
-
-  const isPastDate = (date) => {
-    return moment(date).startOf('day').isBefore(moment().startOf('day'));
-  };
-
-  const isValidScheduleDate = (date) => {
-    if (!isAdmin && !isManager) {
-      return !isPastDate(date);
-    }
-    return true;
-  };
-
-  const handleDragStart = (e, schedule) => {
-    e.stopPropagation();
-    setDraggedSchedule(schedule);
-  };
-
-  const handleDragOver = (e, date) => {
-    e.preventDefault();
-    setHoveredDate(date.format('YYYY-MM-DD'));
-  };
-
-  const handleDrop = async (e, date) => {
-    e.preventDefault();
-    if (!draggedSchedule || !isValidScheduleDate(date)) return;
-
-    const daysDiff = moment(date).diff(moment(draggedSchedule.startDate), 'days');
-    const newStartDate = moment(draggedSchedule.startDate).add(daysDiff, 'days');
-    const newEndDate = moment(draggedSchedule.endDate).add(daysDiff, 'days');
-
-    try {
-      await updateSchedule(draggedSchedule._id, {
-        ...draggedSchedule,
-        startDate: newStartDate,
-        endDate: newEndDate
-      });
-      showNotification('Schedule moved successfully');
-      fetchSchedules();
-    } catch (err) {
-      showNotification('Failed to move schedule', 'error');
-    }
-
-    setDraggedSchedule(null);
-    setHoveredDate(null);
-  };
-
-  const getDaysInMonth = () => {
-    const days = [];
-    const firstDay = moment(selectedDate).startOf('month');
-    const lastDay = moment(selectedDate).endOf('month');
-    
-    // Get the first day of the first week (might be from previous month)
-    const startDate = moment(firstDay).startOf('week');
-    // Get the last day of the last week (might be from next month)
-    const endDate = moment(lastDay).endOf('week');
-    
-    let currentDate = startDate.clone();
-    
-    while (currentDate.isSameOrBefore(endDate)) {
-      days.push({
-        date: currentDate.clone(),
-        isCurrentMonth: currentDate.month() === selectedDate.month(),
-        isToday: currentDate.isSame(moment(), 'day')
-      });
-      currentDate.add(1, 'days');
-    }
-    
-    // Group days into weeks
-    const weeks = [];
-    let week = [];
-    
-    days.forEach((day) => {
-      week.push(day);
-      if (week.length === 7) {
-        weeks.push(week);
-        week = [];
-      }
-    });
-    
-    return weeks;
-  };
-
-  const getSchedulesForDate = (date) => {
-    return schedules.filter(schedule => {
-      if (!schedule || !schedule.startDate || !schedule.endDate || !schedule.days) return false;
-      const scheduleStart = moment(schedule.startDate);
-      const scheduleEnd = moment(schedule.endDate);
-      const dayOfWeek = date.format('dddd').toLowerCase();
-      
-      return date.isBetween(scheduleStart, scheduleEnd, 'day', '[]') && 
-             schedule.days.includes(dayOfWeek);
-    });
-  };
-
-  const renderCalendarDay = ({ date, isCurrentMonth, isToday }) => {
-    const daySchedules = getSchedulesForDate(date).filter(schedule =>
-      schedule && (
-        searchTerm === '' || 
-        (schedule.notes && schedule.notes.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (schedule.type && schedule.type.toLowerCase().includes(searchTerm.toLowerCase()))
-      )
-    );
-    
-    const isExpanded = expandedDate === date.format('YYYY-MM-DD');
-    const isWeekendDay = isWeekend(date);
-    const isPast = isPastDate(date);
-    const isHovered = hoveredDate === date.format('YYYY-MM-DD');
-    
-    return (
-      <Grid item xs key={date.format('YYYY-MM-DD')}>
+  return (
+    <Container maxWidth="xl">
+      <Box sx={{ mt: 4, mb: 4 }}>
         <Paper 
-          onClick={() => handleDateClick(date)}
-          onDragOver={(e) => handleDragOver(e, date)}
-          onDrop={(e) => handleDrop(e, date)}
+          elevation={2} 
           sx={{ 
-            p: 1.5,
-            minHeight: isExpanded ? 200 : { xs: 100, sm: 120 },
-            height: '100%',
-            bgcolor: isHovered
-              ? alpha(baseTheme.palette.primary.main, 0.15)
-              : isToday 
-                ? alpha(baseTheme.palette.primary.main, 0.1)
-                : isCurrentMonth 
-                  ? isWeekendDay
-                    ? baseTheme.palette.mode === 'dark' 
-                      ? alpha(baseTheme.palette.grey[800], 0.8)
-                      : alpha('#f5f5f5', 0.8)
-                    : baseTheme.palette.mode === 'dark'
-                      ? alpha(baseTheme.palette.grey[900], 0.5)
-                      : alpha(baseTheme.palette.background.paper, 0.8)
-                  : baseTheme.palette.mode === 'dark'
-                    ? alpha(baseTheme.palette.grey[900], 0.2)
-                    : alpha('#eeeeee', 0.3),
-            borderRadius: '0 0 16px 16px',
-            opacity: isCurrentMonth ? (isPast ? 0.7 : 1) : 0.5,
-            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-            cursor: isValidScheduleDate(date) ? 'pointer' : 'not-allowed',
-            position: 'relative',
-            border: '1px solid',
-            borderColor: isToday 
-              ? baseTheme.palette.primary.main 
-              : isHovered
-                ? baseTheme.palette.primary.main
-                : baseTheme.palette.mode === 'dark'
-                  ? alpha(baseTheme.palette.grey[700], 0.3)
-                  : alpha(baseTheme.palette.divider, 0.1),
-            '&:hover': {
-              transform: isValidScheduleDate(date) ? 'translateY(-2px)' : 'none',
-              boxShadow: isValidScheduleDate(date) 
-                ? `0 4px 20px 0 ${alpha(baseTheme.palette.primary.main, 0.1)}`
-                : 'none',
-              bgcolor: isToday 
-                ? alpha(baseTheme.palette.primary.main, 0.2)
-                : baseTheme.palette.mode === 'dark'
-                  ? alpha(baseTheme.palette.grey[800], 0.8)
-                  : alpha(baseTheme.palette.background.paper, 0.9)
-            },
-            '&::before': isPast && !isAdmin && !isManager ? {
-              content: '""',
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundColor: baseTheme.palette.mode === 'dark'
-                ? 'rgba(255, 255, 255, 0.05)'
-                : 'rgba(0, 0, 0, 0.1)',
-              zIndex: 1,
-              pointerEvents: 'none'
-            } : {}
+            p: 3, 
+            bgcolor: theme.palette.background.default
           }}
         >
-          <Box sx={{ 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            alignItems: 'center',
-            mb: 1
-          }}>
-            <Stack direction="row" spacing={1} alignItems="center">
-              <Badge
-                color={isToday ? 'primary' : 'default'}
-                variant={isToday ? 'dot' : 'standard'}
-                sx={{ 
-                  '& .MuiBadge-dot': {
-                    transform: 'translate(4px, -4px)'
-                  }
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+            <Typography variant="h5" component="h1">
+              Schedule Management
+            </Typography>
+            {hasEditPermission && (
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => {
+                  resetForm();
+                  setOpenDialog(true);
                 }}
               >
-                <Typography 
-                  variant="body2" 
-                  sx={{ 
-                    fontWeight: isToday ? 700 : 500,
-                    color: isToday 
-                      ? 'primary.main' 
-                      : isWeekendDay
-                        ? baseTheme.palette.mode === 'dark' 
-                          ? baseTheme.palette.error.light
-                          : baseTheme.palette.error.main
-                        : baseTheme.palette.mode === 'dark'
-                          ? baseTheme.palette.text.primary
-                          : baseTheme.palette.text.primary
-                  }}
-                >
-                  {date.format('D')}
-                </Typography>
-              </Badge>
-              {isPast && !isAdmin && !isManager && (
-                <Tooltip title="Past date">
-                  <InfoIcon 
-                    sx={{ 
-                      fontSize: '0.875rem', 
-                      color: baseTheme.palette.text.secondary
-                    }} 
-                  />
-                </Tooltip>
-              )}
-            </Stack>
-            {daySchedules.length > 0 && (
-              <Chip
-                size="small"
-                label={`${daySchedules.length} ${daySchedules.length === 1 ? 'shift' : 'shifts'}`}
-                color="primary"
-                variant={baseTheme.palette.mode === 'dark' ? 'filled' : 'outlined'}
-                sx={{ 
-                  height: 20,
-                  fontSize: '0.7rem',
-                  '& .MuiChip-label': { px: 1 }
-                }}
-              />
+                Add Schedule
+              </Button>
             )}
           </Box>
 
-          <Fade in={isExpanded || daySchedules.length > 0}>
-            <Stack 
-              spacing={0.5} 
-              sx={{ 
-                maxHeight: isExpanded ? 160 : { xs: 60, sm: 80 },
-                overflowY: 'auto',
-                transition: 'max-height 0.3s ease-in-out',
-                '&::-webkit-scrollbar': {
-                  width: '4px'
-                },
-                '&::-webkit-scrollbar-track': {
-                  background: 'transparent'
-                },
-                '&::-webkit-scrollbar-thumb': {
-                  background: alpha(baseTheme.palette.primary.main, 0.2),
-                  borderRadius: '4px'
-                }
-              }}
-            >
-              {daySchedules.length > 0 ? (
-                daySchedules.map((schedule) => {
-                  if (!schedule || !schedule.type) return null;
-                  return (
-                    <Tooltip
-                      key={schedule._id}
-                      title={
-                        <React.Fragment>
-                          <Typography variant="subtitle2">
-                            {schedule.type.charAt(0).toUpperCase() + schedule.type.slice(1)} Schedule
-                          </Typography>
-                          <Typography variant="body2">
-                            {schedule.startTime} - {schedule.endTime}
-                          </Typography>
-                          {schedule.notes && (
-                            <Typography variant="body2" sx={{ mt: 0.5 }}>
-                              Note: {schedule.notes}
-                            </Typography>
-                          )}
-                        </React.Fragment>
-                      }
-                      arrow
-                      placement="top"
-                    >
-                      <Chip
-                        draggable={isAdmin || isManager}
-                        onDragStart={(e) => handleDragStart(e, schedule)}
-                        label={
-                          <Box sx={{ 
-                            display: 'flex', 
-                            alignItems: 'center',
-                            gap: 0.5,
-                            fontSize: '0.75rem'
-                          }}>
-                            <TimeIcon sx={{ fontSize: '0.875rem' }} />
-                            {schedule.startTime} - {schedule.endTime}
-                          </Box>
-                        }
-                        size="small"
-                        color={
-                          schedule.type === 'regular' ? 'primary' :
-                          schedule.type === 'overtime' ? 'error' :
-                          schedule.type === 'flexible' ? 'warning' : 'success'
-                        }
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (isPast && !isAdmin && !isManager) {
-                            showNotification("Cannot edit past schedules", "error");
-                            return;
-                          }
-                          handleEdit(schedule);
-                        }}
-                        onDelete={
-                          (isAdmin || isManager) 
-                            ? (e) => {
-                                e.stopPropagation();
-                                if (window.confirm('Are you sure you want to delete this schedule?')) {
-                                  handleDelete(schedule._id);
-                                }
-                              }
-                            : undefined
-                        }
-                        sx={{ 
-                          borderRadius: 2,
-                          width: '100%',
-                          justifyContent: 'flex-start',
-                          transition: 'all 0.2s',
-                          cursor: isPast && !isAdmin && !isManager ? 'not-allowed' : 'pointer',
-                          opacity: isPast && !isAdmin && !isManager ? 0.7 : 1,
-                          '&:hover': {
-                            transform: isPast && !isAdmin && !isManager ? 'none' : 'scale(1.02)',
-                            bgcolor: alpha(
-                              schedule.type === 'regular' ? baseTheme.palette.primary.main :
-                              schedule.type === 'overtime' ? baseTheme.palette.error.main :
-                              schedule.type === 'flexible' ? baseTheme.palette.warning.main :
-                              baseTheme.palette.success.main,
-                              0.1
-                            )
-                          },
-                          '& .MuiChip-label': {
-                            display: 'block',
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis'
-                          }
-                        }}
-                      />
-                    </Tooltip>
-                  );
-                })
-              ) : (
-                isCurrentMonth && isExpanded && (
-                  <Box 
-                    sx={{ 
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      gap: 1,
-                      py: 2
-                    }}
-                  >
-                    <InfoIcon sx={{ color: 'text.secondary', fontSize: '2rem' }} />
-                    <Typography 
-                      variant="caption" 
-                      sx={{ 
-                        color: 'text.secondary',
-                        textAlign: 'center'
-                      }}
-                    >
-                      No schedules for this day
-                      {(isAdmin || isManager || !isPast) && (
-                        <Box component="span" sx={{ display: 'block', mt: 1 }}>
-                          <Button
-                            size="small"
-                            startIcon={<AddIcon />}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (isPast && !isAdmin && !isManager) {
-                                showNotification("Cannot add schedule to past dates", "error");
-                                return;
-                              }
-                              setSelectedSchedule(null);
-                              setFormData(prev => ({
-                                ...prev,
-                                startDate: date,
-                                endDate: date
-                              }));
-                              setOpenDialog(true);
-                            }}
-                            disabled={isPast && !isAdmin && !isManager}
-                          >
-                            Add Schedule
-                          </Button>
-                        </Box>
-                      )}
-                    </Typography>
-                  </Box>
-                )
-              )}
-            </Stack>
-          </Fade>
-        </Paper>
-      </Grid>
-    );
-  };
-
-  const handleViewModeChange = (event, newMode) => {
-    if (newMode !== null) {
-      setViewMode(newMode);
-      // Update selected dates based on view mode
-      if (newMode === 'day') {
-        setSelectedDay(moment(selectedDate));
-      } else if (newMode === 'week') {
-        setSelectedWeek(moment(selectedDate).startOf('week'));
-      }
-    }
-  };
-
-  const renderViewModeSelector = () => (
-    <ToggleButtonGroup
-      value={viewMode}
-      exclusive
-      onChange={handleViewModeChange}
-      aria-label="view mode"
-      size="small"
-      sx={{
-        bgcolor: 'background.paper',
-        borderRadius: 3,
-        '& .MuiToggleButton-root': {
-          border: 'none',
-          mx: 0.5,
-          borderRadius: 2,
-          '&.Mui-selected': {
-            bgcolor: alpha(baseTheme.palette.primary.main, 0.1),
-            color: 'primary.main',
-            '&:hover': {
-              bgcolor: alpha(baseTheme.palette.primary.main, 0.2),
-            },
-          },
-        },
-      }}
-    >
-      <ToggleButton value="day" aria-label="day view">
-        <Tooltip title="Day view">
-          <DayViewIcon />
-        </Tooltip>
-      </ToggleButton>
-      <ToggleButton value="week" aria-label="week view">
-        <Tooltip title="Week view">
-          <WeekViewIcon />
-        </Tooltip>
-      </ToggleButton>
-      <ToggleButton value="month" aria-label="month view">
-        <Tooltip title="Month view">
-          <MonthViewIcon />
-        </Tooltip>
-      </ToggleButton>
-      <ToggleButton value="list" aria-label="list view">
-        <Tooltip title="List view">
-          <ListViewIcon />
-        </Tooltip>
-      </ToggleButton>
-    </ToggleButtonGroup>
-  );
-
-  const renderContent = () => {
-    switch (viewMode) {
-      case 'day':
-        return renderDayView();
-      case 'week':
-        return renderWeekView();
-      case 'list':
-        return renderListView();
-      default:
-        return (
-          <Box sx={{ position: 'relative' }}>
-            <Grid container spacing={1}>
-              {getDaysInMonth().map((week, weekIndex) => (
-                <React.Fragment key={`week-${weekIndex}`}>
-                  {week.map((dayInfo) => renderCalendarDay(dayInfo))}
-                </React.Fragment>
-              ))}
-            </Grid>
-          </Box>
-        );
-    }
-  };
-
-  const renderDayView = () => {
-    const hours = Array.from({ length: 24 }, (_, i) => i);
-    const daySchedules = getSchedulesForDate(selectedDay);
-
-    return (
-      <Box>
-        <Typography variant="h6" sx={{ mb: 2, color: 'text.secondary' }}>
-          {selectedDay.format('dddd, MMMM D, YYYY')}
-        </Typography>
-        <Paper 
-          sx={{ 
-            p: 2,
-            bgcolor: baseTheme.palette.mode === 'dark' 
-              ? alpha(baseTheme.palette.background.paper, 0.8)
-              : 'background.paper',
-          }}
-        >
-          <Stack spacing={0}>
-            {hours.map((hour) => {
-              const time = moment().set({ hour, minute: 0, second: 0 });
-              const currentHourSchedules = daySchedules.filter(schedule => {
-                const startTime = moment(schedule.startTime, 'HH:mm');
-                const endTime = moment(schedule.endTime, 'HH:mm');
-                return startTime.hour() <= hour && endTime.hour() > hour;
-              });
-
-              return (
-                <Box
-                  key={hour}
-                  sx={{
-                    display: 'flex',
-                    borderBottom: 1,
-                    borderColor: 'divider',
-                    minHeight: 80,
-                    '&:last-child': {
-                      borderBottom: 'none',
-                    },
-                  }}
-                >
-                  <Box
-                    sx={{
-                      width: 60,
-                      py: 1,
-                      pr: 2,
-                      borderRight: 1,
-                      borderColor: 'divider',
-                      display: 'flex',
-                      alignItems: 'flex-start',
-                      justifyContent: 'flex-end',
-                    }}
-                  >
-                    <Typography
-                      variant="caption"
-                      sx={{
-                        color: 'text.secondary',
-                        fontWeight: 500,
-                      }}
-                    >
-                      {time.format('HH:mm')}
-                    </Typography>
-                  </Box>
-                  <Box sx={{ flex: 1, p: 1 }}>
-                    <Stack spacing={1}>
-                      {currentHourSchedules.map((schedule) => (
-                        <Zoom in key={schedule._id}>
-                          <Chip
-                            label={
-                              <Box sx={{ 
-                                display: 'flex', 
-                                alignItems: 'center',
-                                gap: 1,
-                              }}>
-                                <TimeIcon sx={{ fontSize: '0.875rem' }} />
-                                <Typography variant="body2">
-                                  {schedule.startTime} - {schedule.endTime}
-                                  <Typography
-                                    component="span"
-                                    variant="caption"
-                                    sx={{ 
-                                      ml: 1,
-                                      color: 'text.secondary',
-                                      fontStyle: 'italic'
-                                    }}
-                                  >
-                                    ({schedule.type})
-                                  </Typography>
-                                </Typography>
-                              </Box>
-                            }
-                            color={
-                              schedule.type === 'regular' ? 'primary' :
-                              schedule.type === 'overtime' ? 'error' :
-                              schedule.type === 'flexible' ? 'warning' : 'success'
-                            }
-                            onClick={() => handleEdit(schedule)}
-                            onDelete={
-                              (isAdmin || isManager) 
-                                ? () => {
-                                    if (window.confirm('Are you sure you want to delete this schedule?')) {
-                                      handleDelete(schedule._id);
-                                    }
-                                  }
-                                : undefined
-                            }
-                            sx={{ 
-                              width: '100%',
-                              height: 'auto',
-                              '& .MuiChip-label': {
-                                display: 'block',
-                                whiteSpace: 'normal',
-                                py: 1,
-                              },
-                              cursor: 'pointer',
-                              '&:hover': {
-                                bgcolor: alpha(
-                                  schedule.type === 'regular' ? baseTheme.palette.primary.main :
-                                  schedule.type === 'overtime' ? baseTheme.palette.error.main :
-                                  schedule.type === 'flexible' ? baseTheme.palette.warning.main :
-                                  baseTheme.palette.success.main,
-                                  0.1
-                                ),
-                              },
-                            }}
-                          />
-                        </Zoom>
-                      ))}
-                    </Stack>
-                  </Box>
+          {/* Schedule Grid */}
+          <Grid container spacing={3}>
+            {loading ? (
+              <Grid item xs={12}>
+                <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+                  <Typography>Loading schedules...</Typography>
                 </Box>
-              );
-            })}
-          </Stack>
-        </Paper>
-      </Box>
-    );
-  };
-
-  const getWeekDates = () => {
-    const dates = [];
-    const startOfWeek = selectedWeek.clone().startOf('week');
-    for (let i = 0; i < 7; i++) {
-      dates.push(startOfWeek.clone().add(i, 'days'));
-    }
-    return dates;
-  };
-
-  const renderWeekView = () => {
-    const weekDates = getWeekDates();
-    const hours = Array.from({ length: 24 }, (_, i) => i);
-
-    return (
-      <Box>
-        <Typography variant="h6" sx={{ mb: 2, color: 'text.secondary' }}>
-          Week of {selectedWeek.format('MMMM D, YYYY')}
-        </Typography>
-        <Paper 
-          sx={{ 
-            p: 2,
-            bgcolor: baseTheme.palette.mode === 'dark' 
-              ? alpha(baseTheme.palette.background.paper, 0.8)
-              : 'background.paper',
-            overflow: 'auto',
-          }}
-        >
-          <Box sx={{ display: 'flex', minWidth: 800 }}>
-            {/* Time column */}
-            <Box sx={{ width: 60, flexShrink: 0 }}>
-              <Box sx={{ height: 50 }} /> {/* Header spacer */}
-              {hours.map((hour) => (
-                <Box
-                  key={hour}
-                  sx={{
-                    height: 80,
-                    borderBottom: 1,
-                    borderColor: 'divider',
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    justifyContent: 'flex-end',
-                    pr: 2,
-                    '&:last-child': {
-                      borderBottom: 'none',
-                    },
-                  }}
-                >
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      color: 'text.secondary',
-                      fontWeight: 500,
-                      pt: 1,
-                    }}
-                  >
-                    {moment().set({ hour, minute: 0 }).format('HH:mm')}
-                  </Typography>
-                </Box>
-              ))}
-            </Box>
-
-            {/* Day columns */}
-            {weekDates.map((date) => {
-              const daySchedules = getSchedulesForDate(date);
-              const isToday = date.isSame(moment(), 'day');
-              const isWeekend = [0, 6].includes(date.day());
-
-              return (
-                <Box
-                  key={date.format('YYYY-MM-DD')}
-                  sx={{
-                    flex: 1,
-                    minWidth: 120,
-                    borderLeft: 1,
-                    borderColor: 'divider',
-                  }}
-                >
-                  {/* Day header */}
-                  <Box
-                    sx={{
-                      height: 50,
-                      p: 1,
-                      borderBottom: 1,
-                      borderColor: 'divider',
-                      bgcolor: isToday 
-                        ? alpha(baseTheme.palette.primary.main, 0.1)
-                        : 'transparent',
-                    }}
-                  >
-                    <Typography
-                      variant="subtitle2"
-                      sx={{
-                        color: isWeekend ? 'error.main' : 'text.primary',
-                        fontWeight: isToday ? 700 : 500,
-                      }}
-                    >
-                      {date.format('ddd')}
-                    </Typography>
-                    <Typography
-                      variant="caption"
-                      sx={{
-                        color: isToday ? 'primary.main' : 'text.secondary',
-                      }}
-                    >
-                      {date.format('MMM D')}
-                    </Typography>
-                  </Box>
-
-                  {/* Hour cells */}
-                  {hours.map((hour) => {
-                    const currentHourSchedules = daySchedules.filter(schedule => {
-                      const startTime = moment(schedule.startTime, 'HH:mm');
-                      const endTime = moment(schedule.endTime, 'HH:mm');
-                      return startTime.hour() <= hour && endTime.hour() > hour;
-                    });
-
-                    return (
-                      <Box
-                        key={hour}
-                        sx={{
-                          height: 80,
-                          borderBottom: 1,
-                          borderColor: 'divider',
-                          p: 0.5,
-                          '&:last-child': {
-                            borderBottom: 'none',
-                          },
-                        }}
-                      >
-                        <Stack spacing={0.5}>
-                          {currentHourSchedules.map((schedule) => (
-                            <Zoom in key={schedule._id}>
-                              <Chip
-                                size="small"
-                                label={
-                                  <Typography variant="caption" noWrap>
-                                    {schedule.startTime} - {schedule.endTime}
-                                  </Typography>
-                                }
-                                color={
-                                  schedule.type === 'regular' ? 'primary' :
-                                  schedule.type === 'overtime' ? 'error' :
-                                  schedule.type === 'flexible' ? 'warning' : 'success'
-                                }
-                                onClick={() => handleEdit(schedule)}
-                                onDelete={
-                                  (isAdmin || isManager) 
-                                    ? () => {
-                                        if (window.confirm('Are you sure you want to delete this schedule?')) {
-                                          handleDelete(schedule._id);
-                                        }
-                                      }
-                                    : undefined
-                                }
-                                sx={{ 
-                                  width: '100%',
-                                  cursor: 'pointer',
-                                  '&:hover': {
-                                    bgcolor: alpha(
-                                      schedule.type === 'regular' ? baseTheme.palette.primary.main :
-                                      schedule.type === 'overtime' ? baseTheme.palette.error.main :
-                                      schedule.type === 'flexible' ? baseTheme.palette.warning.main :
-                                      baseTheme.palette.success.main,
-                                      0.1
-                                    ),
-                                  },
-                                }}
-                              />
-                            </Zoom>
-                          ))}
-                        </Stack>
-                      </Box>
-                    );
-                  })}
-                </Box>
-              );
-            })}
-          </Box>
-        </Paper>
-      </Box>
-    );
-  };
-
-  const renderListView = () => {
-    const filteredSchedules = schedules
-      .filter(schedule => 
-        searchTerm === '' || 
-        (schedule.notes && schedule.notes.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (schedule.type && schedule.type.toLowerCase().includes(searchTerm.toLowerCase()))
-      )
-      .sort((a, b) => moment(a.startDate).diff(moment(b.startDate)));
-
-    return (
-      <Box>
-        <Paper 
-          sx={{ 
-            p: 2,
-            bgcolor: baseTheme.palette.mode === 'dark' 
-              ? alpha(baseTheme.palette.background.paper, 0.8)
-              : 'background.paper',
-            overflow: 'auto'
-          }}
-        >
-          {filteredSchedules.length > 0 ? (
-            <Stack spacing={2}>
-              {filteredSchedules.map((schedule) => {
-                const startDate = moment(schedule.startDate);
-                const endDate = moment(schedule.endDate);
-                const isPast = isPastDate(startDate);
-
-                return (
-                  <Zoom in key={schedule._id}>
-                    <Paper
-                      elevation={0}
-                      sx={{
-                        p: 2,
-                        border: '1px solid',
-                        borderColor: 'divider',
-                        borderRadius: 2,
-                        bgcolor: baseTheme.palette.mode === 'dark'
-                          ? alpha(baseTheme.palette.background.default, 0.5)
-                          : alpha(baseTheme.palette.background.default, 0.5),
-                        opacity: isPast && !isAdmin && !isManager ? 0.7 : 1,
-                        transition: 'all 0.2s',
-                        '&:hover': {
-                          bgcolor: baseTheme.palette.mode === 'dark'
-                            ? alpha(baseTheme.palette.background.default, 0.8)
-                            : alpha(baseTheme.palette.background.default, 0.8),
-                          transform: isPast && !isAdmin && !isManager ? 'none' : 'translateY(-2px)',
-                        }
-                      }}
-                    >
-                      <Grid container spacing={2} alignItems="center">
-                        <Grid item xs={12} sm={4}>
-                          <Stack spacing={0.5}>
-                            <Typography variant="subtitle2" color="text.secondary">
-                              Date Range
-                            </Typography>
-                            <Stack direction="row" spacing={1} alignItems="center">
-                              <CalendarIcon sx={{ fontSize: '1.2rem', color: 'primary.main' }} />
-                              <Typography>
-                                {startDate.format('MMM D')} - {endDate.format('MMM D, YYYY')}
-                              </Typography>
-                            </Stack>
-                          </Stack>
-                        </Grid>
-                        
-                        <Grid item xs={12} sm={3}>
-                          <Stack spacing={0.5}>
-                            <Typography variant="subtitle2" color="text.secondary">
-                              Time
-                            </Typography>
-                            <Stack direction="row" spacing={1} alignItems="center">
-                              <TimeIcon sx={{ fontSize: '1.2rem', color: 'primary.main' }} />
-                              <Typography>
-                                {schedule.startTime} - {schedule.endTime}
-                              </Typography>
-                            </Stack>
-                          </Stack>
-                        </Grid>
-                        
-                        <Grid item xs={12} sm={3}>
-                          <Stack spacing={0.5}>
-                            <Typography variant="subtitle2" color="text.secondary">
-                              Working Days
-                            </Typography>
-                            <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
-                              {schedule.days.map((day) => (
-                                <Chip
-                                  key={day}
-                                  label={day.slice(0, 3)}
-                                  size="small"
-                                  variant={baseTheme.palette.mode === 'dark' ? 'filled' : 'outlined'}
-                                  sx={{ 
-                                    borderRadius: 1,
-                                    height: 24,
-                                    '& .MuiChip-label': { px: 1 }
-                                  }}
-                                />
-                              ))}
-                            </Stack>
-                          </Stack>
-                        </Grid>
-
-                        <Grid item xs={12} sm={2}>
-                          <Stack direction="row" spacing={1} justifyContent="flex-end">
-                            <Chip
-                              label={schedule.type}
-                              size="small"
-                              color={
-                                schedule.type === 'regular' ? 'primary' :
-                                schedule.type === 'overtime' ? 'error' :
-                                schedule.type === 'flexible' ? 'warning' : 'success'
-                              }
-                              sx={{ borderRadius: 2 }}
-                            />
-                            <IconButton
-                              size="small"
-                              onClick={() => handleEdit(schedule)}
-                              disabled={isPast && !isAdmin && !isManager}
-                              sx={{
-                                color: 'primary.main',
-                                bgcolor: alpha(baseTheme.palette.primary.main, 0.1),
-                                '&:hover': {
-                                  bgcolor: alpha(baseTheme.palette.primary.main, 0.2),
-                                }
-                              }}
-                            >
-                              <EditIcon fontSize="small" />
+              </Grid>
+            ) : schedules.length > 0 ? (
+              schedules.map((schedule) => (
+                <Grid item xs={12} sm={6} md={4} key={schedule._id}>
+                  <Card>
+                    <CardContent>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <Typography variant="h6" gutterBottom>
+                          {schedule.type.charAt(0).toUpperCase() + schedule.type.slice(1)} Schedule
+                        </Typography>
+                        {hasEditPermission && (
+                          <Box>
+                            <IconButton size="small" onClick={() => handleEdit(schedule)}>
+                              <EditIcon />
                             </IconButton>
-                            {(isAdmin || isManager) && (
-                              <IconButton
-                                size="small"
-                                onClick={() => {
-                                  if (window.confirm('Are you sure you want to delete this schedule?')) {
-                                    handleDelete(schedule._id);
-                                  }
-                                }}
-                                sx={{
-                                  color: 'error.main',
-                                  bgcolor: alpha(baseTheme.palette.error.main, 0.1),
-                                  '&:hover': {
-                                    bgcolor: alpha(baseTheme.palette.error.main, 0.2),
-                                  }
-                                }}
-                              >
-                                <DeleteIcon fontSize="small" />
-                              </IconButton>
-                            )}
-                          </Stack>
-                        </Grid>
-
-                        {schedule.notes && (
-                          <Grid item xs={12}>
-                            <Typography
-                              variant="body2"
-                              color="text.secondary"
-                              sx={{
-                                mt: 1,
-                                p: 1,
-                                borderRadius: 1,
-                                bgcolor: alpha(baseTheme.palette.primary.main, 0.05),
-                                borderLeft: 3,
-                                borderColor: 'primary.main'
-                              }}
-                            >
-                              {schedule.notes}
-                            </Typography>
-                          </Grid>
+                            <IconButton size="small" onClick={() => handleDelete(schedule._id)}>
+                              <DeleteIcon />
+                            </IconButton>
+                          </Box>
                         )}
-                      </Grid>
-                    </Paper>
-                  </Zoom>
-                );
-              })}
-            </Stack>
-          ) : (
-            <Box 
-              sx={{ 
-                py: 8,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: 2
-              }}
-            >
-              <InfoIcon sx={{ fontSize: 48, color: 'text.secondary' }} />
-              <Typography variant="h6" color="text.secondary">
-                No schedules found
-              </Typography>
-              <Typography variant="body2" color="text.secondary" textAlign="center">
-                {searchTerm 
-                  ? 'Try adjusting your search terms'
-                  : 'Start by adding a new schedule'}
-              </Typography>
-              {(isAdmin || isManager) && (
-                <Button
-                  variant="contained"
-                  startIcon={<AddIcon />}
-                  onClick={() => {
-                    setSelectedSchedule(null);
-                    setOpenDialog(true);
-                  }}
-                  sx={{ 
-                    mt: 2,
-                    borderRadius: 3,
-                    background: 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)',
-                    boxShadow: '0 3px 5px 2px rgba(33, 203, 243, .3)'
-                  }}
-                >
-                  New Schedule
-                </Button>
-              )}
-            </Box>
-          )}
+                      </Box>
+                      <Stack spacing={1}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <CalendarIcon fontSize="small" />
+                          <Typography variant="body2">
+                            {moment(schedule.startDate).format('MMM D')} - {moment(schedule.endDate).format('MMM D, YYYY')}
+                          </Typography>
+                        </Box>
+                        <Typography variant="body2">
+                          Time: {schedule.startTime} - {schedule.endTime}
+                        </Typography>
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                          {schedule.days.map((day) => (
+                            <Chip
+                              key={day}
+                              label={day.charAt(0).toUpperCase() + day.slice(1)}
+                              size="small"
+                              color="primary"
+                              variant="outlined"
+                            />
+                          ))}
+                        </Box>
+                        {schedule.notes && (
+                          <Typography variant="body2" color="text.secondary">
+                            Notes: {schedule.notes}
+                          </Typography>
+                        )}
+                      </Stack>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))
+            ) : (
+              <Grid item xs={12}>
+                <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+                  <Typography>No schedules found</Typography>
+                </Box>
+              </Grid>
+            )}
+          </Grid>
         </Paper>
       </Box>
-    );
-  };
 
-  const handleExportClick = (event) => {
-    if (isAdmin || isManager) {
-      setExportAnchorEl(event.currentTarget);
-    }
-  };
-
-  const handleExportClose = () => {
-    setExportAnchorEl(null);
-  };
-
-  const handlePreviewClose = () => {
-    setPreviewOpen(false);
-    setPreviewData(null);
-  };
-
-  const handleCustomRangeClose = () => {
-    setCustomRangeOpen(false);
-  };
-
-  const getExportData = (period) => {
-    if (!isAdmin && !isManager) return { schedules: [], fileName: '' };
-    
-    let exportSchedules = [];
-    let fileName = '';
-
-    switch (period) {
-      case 'current':
-        exportSchedules = schedules;
-        fileName = `schedules_${selectedDate.format('YYYY_MM')}`;
-        break;
-      case 'month':
-        const startOfMonth = moment(selectedDate).startOf('month');
-        const endOfMonth = moment(selectedDate).endOf('month');
-        exportSchedules = schedules.filter(schedule => 
-          moment(schedule.startDate).isBetween(startOfMonth, endOfMonth, 'day', '[]')
-        );
-        fileName = `schedules_${selectedDate.format('YYYY_MM')}`;
-        break;
-      case 'week':
-        const startOfWeek = moment(selectedWeek).startOf('week');
-        const endOfWeek = moment(selectedWeek).endOf('week');
-        exportSchedules = schedules.filter(schedule => 
-          moment(schedule.startDate).isBetween(startOfWeek, endOfWeek, 'day', '[]')
-        );
-        fileName = `schedules_week_${startOfWeek.format('YYYY_MM_DD')}`;
-        break;
-      case 'custom':
-        const customStart = moment(customDateRange.startDate).startOf('day');
-        const customEnd = moment(customDateRange.endDate).endOf('day');
-        exportSchedules = schedules.filter(schedule => 
-          moment(schedule.startDate).isBetween(customStart, customEnd, 'day', '[]')
-        );
-        fileName = `schedules_${customStart.format('YYYY_MM_DD')}_to_${customEnd.format('YYYY_MM_DD')}`;
-        break;
-      case 'all':
-        exportSchedules = schedules;
-        fileName = `all_schedules_${moment().format('YYYY_MM_DD')}`;
-        break;
-      default:
-        exportSchedules = schedules;
-        fileName = `schedules_${moment().format('YYYY_MM_DD')}`;
-    }
-
-    return { schedules: exportSchedules, fileName };
-  };
-
-  const exportToCSV = (period) => {
-    if (!isAdmin && !isManager) return;
-    
-    const { schedules: exportSchedules, fileName } = getExportData(period);
-    
-    const csvContent = [
-      ['Start Date', 'End Date', 'Start Time', 'End Time', 'Type', 'Working Days', 'Notes'],
-      ...exportSchedules.map(schedule => [
-        moment(schedule.startDate).format('YYYY-MM-DD'),
-        moment(schedule.endDate).format('YYYY-MM-DD'),
-        schedule.startTime,
-        schedule.endTime,
-        schedule.type,
-        schedule.days.join(', '),
-        schedule.notes || ''
-      ])
-    ].map(row => row.join(',')).join('\n');
-    
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.setAttribute('download', `${fileName}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    handleExportClose();
-    showNotification('Schedule exported successfully as CSV');
-  };
-
-  const exportToJSON = (period) => {
-    if (!isAdmin && !isManager) return;
-    
-    const { schedules: exportSchedules, fileName } = getExportData(period);
-    
-    const jsonContent = JSON.stringify(exportSchedules, null, 2);
-    const blob = new Blob([jsonContent], { type: 'application/json' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.setAttribute('download', `${fileName}.json`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    handleExportClose();
-    showNotification('Schedule exported successfully as JSON');
-  };
-
-  const exportToExcel = (period) => {
-    if (!isAdmin && !isManager) return;
-    
-    const { schedules: exportSchedules, fileName } = getExportData(period);
-    
-    const worksheet = XLSX.utils.json_to_sheet(exportSchedules.map(schedule => ({
-      'Start Date': moment(schedule.startDate).format('YYYY-MM-DD'),
-      'End Date': moment(schedule.endDate).format('YYYY-MM-DD'),
-      'Start Time': schedule.startTime,
-      'End Time': schedule.endTime,
-      'Type': schedule.type,
-      'Working Days': schedule.days.join(', '),
-      'Notes': schedule.notes || ''
-    })));
-
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Schedules');
-    
-    const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
-    const data = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    
-    saveAs(data, `${fileName}.xlsx`);
-    handleExportClose();
-    showNotification('Schedule exported successfully as Excel');
-  };
-
-  const previewExport = (period) => {
-    if (isAdmin || isManager) {
-      setExportPeriod(period);
-      const data = getExportData(period);
-      setPreviewData(data.schedules.slice(0, 10)); // Show first 10 items in preview
-      setPreviewOpen(true);
-      handleExportClose();
-    }
-  };
-
-  const handleExport = (period) => {
-    if (isAdmin || isManager) {
-      switch (exportFormat) {
-        case 'csv':
-          exportToCSV(period);
-          break;
-        case 'json':
-          exportToJSON(period);
-          break;
-        case 'excel':
-          exportToExcel(period);
-          break;
-        default:
-          exportToCSV(period);
-      }
-    }
-  };
-
-  const renderActionButtons = () => {
-    if (!isAdmin && !isManager) return null;
-    
-    return (
-      <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => {
-            setSelectedSchedule(null);
-            setOpenDialog(true);
-          }}
-        >
-          Add Schedule
-        </Button>
-      </Box>
-    );
-  };
-
-  const renderScheduleOptions = (schedule) => {
-    if (!isAdmin && !isManager) {
-      return null;
-    }
-    
-    return (
-      <Stack direction="row" spacing={1}>
-        <IconButton
-          size="small"
-          onClick={() => handleEdit(schedule)}
-          color="primary"
-        >
-          <EditIcon />
-        </IconButton>
-        <IconButton
-          size="small"
-          onClick={() => handleDelete(schedule._id)}
-          color="error"
-        >
-          <DeleteIcon />
-        </IconButton>
-      </Stack>
-    );
-  };
-
-  if (loading && schedules.length === 0) {
-    return (
-      <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        height: '100vh',
-        background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)'
-      }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
-
-  return (
-    <Box 
-      sx={{ 
-        minHeight: '100vh',
-        background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
-        py: { xs: 2, sm: 4 },
-        px: { xs: 1, sm: 2 },
-        transition: 'background 0.3s ease-in-out',
-      }}
-      role="main"
-      aria-label="Schedule Management"
-    >
-      <Container maxWidth="lg">
-        <Snackbar
-          open={notification.open}
-          autoHideDuration={6000}
-          onClose={() => setNotification({ ...notification, open: false })}
-          anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-        >
-          <Alert 
-            onClose={() => setNotification({ ...notification, open: false })}
-            severity={notification.severity}
-            sx={{ width: '100%', borderRadius: 2 }}
-          >
-            {notification.message}
-          </Alert>
-        </Snackbar>
-
-        {error && (
-          <Alert 
-            severity="error" 
-            sx={{ 
-              mb: 3,
-              borderRadius: 2,
-              boxShadow: theme => `0 4px 20px ${alpha(theme.palette.error.main, 0.1)}`
-            }}
-            onClose={() => setError(null)}
-          >
-            {error}
-          </Alert>
-        )}
-
-        <Card sx={{ 
-          mb: 4,
-          background: 'transparent',
-          backdropFilter: 'blur(10px)',
-          bgcolor: alpha(customTheme.palette.background.paper, 0.8),
-          borderRadius: 4,
-          boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.15)',
-          border: '1px solid rgba(0, 0, 0, 0.1)',
-        }}>
-          <CardContent sx={{ 
-            display: 'flex', 
-            flexDirection: { xs: 'column', sm: 'row' },
-            justifyContent: 'space-between', 
-            alignItems: { xs: 'stretch', sm: 'center' },
-            gap: 2,
-            py: 3
-          }}>
-            <Box>
-              <Typography 
-                variant="h4" 
-                component="h1"
-                sx={{ 
-                  fontWeight: 600,
-                  background: 'linear-gradient(45deg, #64B5F6 30%, #81D4FA 90%)',
-                  backgroundClip: 'text',
-                  textFillColor: 'transparent',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  mb: 1
-                }}
-              >
-                {isAdmin || isManager ? 'Schedule Management' : 'My Schedule'}
-              </Typography>
-              <Typography 
-                variant="subtitle1" 
-                sx={{ 
-                  color: 'text.secondary',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1
-                }}
-              >
-                <CalendarIcon fontSize="small" />
-                {selectedDate.format('MMMM YYYY')}
-              </Typography>
-            </Box>
-            
-            <Stack 
-              direction={{ xs: 'column', sm: 'row' }} 
-              spacing={2}
-              width={{ xs: '100%', sm: 'auto' }}
-              alignItems="center"
-            >
-              {renderViewModeSelector()}
-              <TextField
-                placeholder="Search schedules..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon />
-                    </InputAdornment>
-                  ),
-                  sx: { borderRadius: 3 }
-                }}
-                sx={{ 
-                  minWidth: { sm: 200 },
-                  '& .MuiOutlinedInput-root': {
-                    bgcolor: 'background.paper'
-                  }
-                }}
-              />
-              
-              {(isAdmin || isManager) && (
-                <Button
-                  variant="outlined"
-                  startIcon={<DownloadIcon />}
-                  onClick={handleExportClick}
-                  sx={{ 
-                    borderRadius: 3,
-                    borderColor: 'primary.main',
-                    color: 'primary.main',
-                    '&:hover': {
-                      borderColor: 'primary.dark',
-                      bgcolor: alpha(baseTheme.palette.primary.main, 0.1),
-                    }
-                  }}
-                >
-                  Export
-                </Button>
-              )}
-            </Stack>
-          </CardContent>
-        </Card>
-
-        {user.role === 'employee' && (
-          <Alert severity="info" sx={{ mb: 3 }}>
-            As an employee, you can view schedules but only managers and administrators can create or edit them. You can request shift swaps for your assigned schedules.
-          </Alert>
-        )}
-
-        <Card sx={{ 
-          background: 'transparent',
-          backdropFilter: 'blur(10px)',
-          bgcolor: alpha(customTheme.palette.background.paper, 0.8),
-          borderRadius: 4,
-          boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.15)',
-          overflow: 'hidden'
-        }}>
-          <CardContent>
-            <Box 
-              sx={{ 
-                mb: 3,
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                flexWrap: 'wrap',
-                gap: 2
-              }}
-            >
-              <Stack direction="row" spacing={2} alignItems="center">
-                <IconButton
-                  onClick={() => setSelectedDate(moment(selectedDate).subtract(1, 'month'))}
-                  aria-label="Previous month"
-                  sx={{
-                    '&:hover': {
-                      bgcolor: alpha(customTheme.palette.primary.main, 0.2)
-                    }
-                  }}
-                >
-                  <PrevIcon />
-                </IconButton>
+      {/* Add/Edit Schedule Dialog */}
+      <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          {selectedSchedule ? 'Edit Schedule' : 'Add New Schedule'}
+        </DialogTitle>
+        <DialogContent>
+          <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
                 <LocalizationProvider dateAdapter={AdapterMoment}>
                   <DatePicker
-                    views={['year', 'month']}
-                    value={selectedDate}
-                    onChange={(newValue) => setSelectedDate(newValue)}
-                    renderInput={(params) => (
-                      <TextField 
-                        {...params} 
-                        sx={{ 
-                          width: 200,
-                          '& .MuiOutlinedInput-root': {
-                            borderRadius: 3,
-                            bgcolor: 'background.paper'
-                          }
-                        }}
-                      />
-                    )}
+                    label="Start Date"
+                    value={formData.startDate}
+                    onChange={(newValue) => setFormData(prev => ({ ...prev, startDate: newValue }))}
+                    renderInput={(params) => <TextField {...params} fullWidth />}
                   />
                 </LocalizationProvider>
-                <IconButton
-                  onClick={() => setSelectedDate(moment(selectedDate).add(1, 'month'))}
-                  aria-label="Next month"
-                  sx={{
-                    '&:hover': {
-                      bgcolor: alpha(customTheme.palette.primary.main, 0.2)
-                    }
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <LocalizationProvider dateAdapter={AdapterMoment}>
+                  <DatePicker
+                    label="End Date"
+                    value={formData.endDate}
+                    onChange={(newValue) => setFormData(prev => ({ ...prev, endDate: newValue }))}
+                    renderInput={(params) => <TextField {...params} fullWidth />}
+                  />
+                </LocalizationProvider>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <LocalizationProvider dateAdapter={AdapterMoment}>
+                  <TimePicker
+                    label="Start Time"
+                    value={formData.startTime}
+                    onChange={(newValue) => setFormData(prev => ({ ...prev, startTime: newValue }))}
+                    renderInput={(params) => <TextField {...params} fullWidth />}
+                  />
+                </LocalizationProvider>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <LocalizationProvider dateAdapter={AdapterMoment}>
+                  <TimePicker
+                    label="End Time"
+                    value={formData.endTime}
+                    onChange={(newValue) => setFormData(prev => ({ ...prev, endTime: newValue }))}
+                    renderInput={(params) => <TextField {...params} fullWidth />}
+                  />
+                </LocalizationProvider>
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  select
+                  fullWidth
+                  label="Schedule Type"
+                  value={formData.type}
+                  onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value }))}
+                >
+                  <MenuItem value="regular">Regular</MenuItem>
+                  <MenuItem value="overtime">Overtime</MenuItem>
+                  <MenuItem value="flexible">Flexible</MenuItem>
+                </TextField>
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  select
+                  fullWidth
+                  label="Working Days"
+                  value={formData.days}
+                  onChange={(e) => setFormData(prev => ({ ...prev, days: e.target.value }))}
+                  SelectProps={{
+                    multiple: true,
+                    renderValue: (selected) => (
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                        {selected.map((value) => (
+                          <Chip
+                            key={value}
+                            label={value.charAt(0).toUpperCase() + value.slice(1)}
+                            size="small"
+                          />
+                        ))}
+                      </Box>
+                    ),
                   }}
                 >
-                  <NextIcon />
-                </IconButton>
-              </Stack>
-
-              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                {scheduleTypes.map((type) => (
-                  <Tooltip 
-                    key={type.value} 
-                    title={`${type.label} schedule`}
-                    arrow
-                  >
-                    <Chip
-                      label={type.label}
-                      size="small"
-                      color={
-                        type.value === 'regular' ? 'primary' :
-                        type.value === 'overtime' ? 'error' :
-                        type.value === 'flexible' ? 'warning' : 'success'
-                      }
-                      sx={{ 
-                        borderRadius: 2,
-                        '&:hover': {
-                          transform: 'translateY(-2px)'
-                        },
-                        transition: 'transform 0.2s'
-                      }}
-                    />
-                  </Tooltip>
-                ))}
-              </Box>
-            </Box>
-
-            {renderContent()}
-          </CardContent>
-        </Card>
-
-        {renderActionButtons()}
-
-        {(isAdmin || isManager) && (
-          <Menu
-            anchorEl={exportAnchorEl}
-            open={Boolean(exportAnchorEl)}
-            onClose={handleExportClose}
-            PaperProps={{
-              sx: {
-                mt: 1.5,
-                borderRadius: 2,
-                minWidth: 200,
-                boxShadow: '0 8px 16px rgba(0,0,0,0.1)',
-              }
-            }}
-          >
-            <MenuItem sx={{ typography: 'subtitle2', color: 'text.secondary', cursor: 'default' }}>
-              Export Format
-            </MenuItem>
-            <Divider />
-            <MenuItem onClick={() => setExportFormat('csv')}>
-              <ListItemIcon>
-                <RadioButtonChecked 
-                  fontSize="small"
-                  sx={{ 
-                    visibility: exportFormat === 'csv' ? 'visible' : 'hidden',
-                    color: 'primary.main'
-                  }}
+                  {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map((day) => (
+                    <MenuItem key={day} value={day}>
+                      {day.charAt(0).toUpperCase() + day.slice(1)}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Notes"
+                  multiline
+                  rows={3}
+                  value={formData.notes}
+                  onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
                 />
-              </ListItemIcon>
-              CSV Format
-            </MenuItem>
-            <MenuItem onClick={() => setExportFormat('excel')}>
-              <ListItemIcon>
-                <RadioButtonChecked 
-                  fontSize="small"
-                  sx={{ 
-                    visibility: exportFormat === 'excel' ? 'visible' : 'hidden',
-                    color: 'primary.main'
-                  }}
-                />
-              </ListItemIcon>
-              Excel Format
-            </MenuItem>
-            <MenuItem onClick={() => setExportFormat('json')}>
-              <ListItemIcon>
-                <RadioButtonChecked 
-                  fontSize="small"
-                  sx={{ 
-                    visibility: exportFormat === 'json' ? 'visible' : 'hidden',
-                    color: 'primary.main'
-                  }}
-                />
-              </ListItemIcon>
-              JSON Format
-            </MenuItem>
-            <Divider />
-            <MenuItem sx={{ typography: 'subtitle2', color: 'text.secondary', cursor: 'default' }}>
-              Export Period
-            </MenuItem>
-            <MenuItem onClick={() => handleExport('current')}>
-              Current View
-            </MenuItem>
-            <MenuItem onClick={() => handleExport('month')}>
-              Current Month
-            </MenuItem>
-            <MenuItem onClick={() => handleExport('week')}>
-              Current Week
-            </MenuItem>
-            <MenuItem onClick={() => setCustomRangeOpen(true)}>
-              Custom Range...
-            </MenuItem>
-            <MenuItem onClick={() => handleExport('all')}>
-              All Schedules
-            </MenuItem>
-            <Divider />
-            <MenuItem onClick={() => previewExport(exportPeriod)}>
-              <ListItemIcon>
-                <PreviewIcon fontSize="small" />
-              </ListItemIcon>
-              Preview Export
-            </MenuItem>
-          </Menu>
-        )}
-        
-        {(isAdmin || isManager) && (
-          <>
-            {/* Preview Dialog */}
-            <Dialog
-              open={previewOpen}
-              onClose={handlePreviewClose}
-              maxWidth="md"
-              fullWidth
-              PaperProps={{
-                sx: {
-                  borderRadius: 2,
-                  bgcolor: alpha(customTheme.palette.background.paper, 0.95),
-                }
-              }}
-            >
-              <DialogTitle>
-                <Stack direction="row" justifyContent="space-between" alignItems="center">
-                  <Typography variant="h6">Export Preview</Typography>
-                  <IconButton onClick={handlePreviewClose} size="small">
-                    <CloseIcon />
-                  </IconButton>
-                </Stack>
-              </DialogTitle>
-              <DialogContent>
-                <Box sx={{ maxHeight: 400, overflow: 'auto' }}>
-                  <Table>
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Start Date</TableCell>
-                        <TableCell>End Date</TableCell>
-                        <TableCell>Time</TableCell>
-                        <TableCell>Type</TableCell>
-                        <TableCell>Working Days</TableCell>
-                        <TableCell>Notes</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {previewData?.map((schedule, index) => (
-                        <TableRow key={index}>
-                          <TableCell>{moment(schedule.startDate).format('YYYY-MM-DD')}</TableCell>
-                          <TableCell>{moment(schedule.endDate).format('YYYY-MM-DD')}</TableCell>
-                          <TableCell>{schedule.startTime} - {schedule.endTime}</TableCell>
-                          <TableCell>
-                            <Chip
-                              label={schedule.type}
-                              size="small"
-                              color={
-                                schedule.type === 'regular' ? 'primary' :
-                                schedule.type === 'overtime' ? 'error' :
-                                schedule.type === 'flexible' ? 'warning' : 'success'
-                              }
-                            />
-                          </TableCell>
-                          <TableCell>{schedule.days.join(', ')}</TableCell>
-                          <TableCell>{schedule.notes}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </Box>
-              </DialogContent>
-              <DialogActions>
-                <Button onClick={handlePreviewClose}>Close</Button>
-                <Button
-                  variant="contained"
-                  onClick={() => {
-                    handleExport(exportPeriod);
-                    handlePreviewClose();
-                  }}
-                  startIcon={<FileDownloadIcon />}
-                >
-                  Export
-                </Button>
-              </DialogActions>
-            </Dialog>
+              </Grid>
+            </Grid>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenDialog(false)}>Cancel</Button>
+          <Button onClick={handleSubmit} variant="contained" disabled={loading}>
+            {selectedSchedule ? 'Update' : 'Create'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
-            {/* Custom Date Range Dialog */}
-            <Dialog
-              open={customRangeOpen}
-              onClose={handleCustomRangeClose}
-              PaperProps={{
-                sx: {
-                  borderRadius: 2,
-                  bgcolor: alpha(customTheme.palette.background.paper, 0.95),
-                }
-              }}
-            >
-              <DialogTitle>
-                <Stack direction="row" justifyContent="space-between" alignItems="center">
-                  <Typography variant="h6">Custom Date Range</Typography>
-                  <IconButton onClick={handleCustomRangeClose} size="small">
-                    <CloseIcon />
-                  </IconButton>
-                </Stack>
-              </DialogTitle>
-              <DialogContent>
-                <Stack spacing={3} sx={{ mt: 1 }}>
-                  <LocalizationProvider dateAdapter={AdapterMoment}>
-                    <DatePicker
-                      label="Start Date"
-                      value={customDateRange.startDate}
-                      onChange={(newValue) => setCustomDateRange(prev => ({ ...prev, startDate: newValue }))}
-                      renderInput={(params) => (
-                        <TextField 
-                          {...params} 
-                          fullWidth
-                          sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
-                        />
-                      )}
-                    />
-                    <DatePicker
-                      label="End Date"
-                      value={customDateRange.endDate}
-                      onChange={(newValue) => setCustomDateRange(prev => ({ ...prev, endDate: newValue }))}
-                      renderInput={(params) => (
-                        <TextField 
-                          {...params} 
-                          fullWidth
-                          sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
-                        />
-                      )}
-                      minDate={customDateRange.startDate}
-                    />
-                  </LocalizationProvider>
-                </Stack>
-              </DialogContent>
-              <DialogActions>
-                <Button onClick={handleCustomRangeClose}>Cancel</Button>
-                <Button
-                  variant="contained"
-                  onClick={() => {
-                    handleExport('custom');
-                    handleCustomRangeClose();
-                  }}
-                >
-                  Export
-                </Button>
-              </DialogActions>
-            </Dialog>
-          </>
-        )}
-      </Container>
-    </Box>
+      {/* Notifications */}
+      <Snackbar
+        open={notification.open}
+        autoHideDuration={6000}
+        onClose={handleNotificationClose}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert
+          onClose={handleNotificationClose}
+          severity={notification.severity}
+          variant="filled"
+          sx={{ width: '100%' }}
+        >
+          {notification.message}
+        </Alert>
+      </Snackbar>
+    </Container>
   );
 };
 

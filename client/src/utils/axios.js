@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Create axios instance with base URL
 const instance = axios.create({
-  baseURL: '/api',
+  baseURL: '/api', // Use relative path since we have proxy in package.json
   headers: {
     'Content-Type': 'application/json'
   },
@@ -27,12 +27,18 @@ instance.interceptors.request.use(
 instance.interceptors.response.use(
   (response) => response,
   (error) => {
+    // Handle 401 (Unauthorized) - redirect to login
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
       window.location.href = '/login';
     }
-    return Promise.reject(error);
+    // Handle 403 (Forbidden) - not enough permissions
+    else if (error.response?.status === 403) {
+      throw new Error('You do not have permission to perform this action');
+    }
+    // Handle other errors
+    throw error.response?.data?.message || error.message || 'An error occurred';
   }
 );
 
-export default instance; 
+export default instance;

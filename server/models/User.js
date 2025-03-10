@@ -99,8 +99,8 @@ const UserSchema = new mongoose.Schema({
     default: false
   },
   mfaSecret: String,
-  passwordResetToken: String,
-  passwordResetExpires: Date
+  resetPasswordToken: String,
+  resetPasswordExpires: Date
 }, {
   timestamps: true
 });
@@ -140,11 +140,11 @@ UserSchema.methods.getFullName = function() {
 // Method to generate password reset token
 UserSchema.methods.createPasswordResetToken = function() {
   const resetToken = crypto.randomBytes(32).toString('hex');
-  this.passwordResetToken = crypto
+  this.resetPasswordToken = crypto
     .createHash('sha256')
     .update(resetToken)
     .digest('hex');
-  this.passwordResetExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
+  this.resetPasswordExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
   return resetToken;
 };
 

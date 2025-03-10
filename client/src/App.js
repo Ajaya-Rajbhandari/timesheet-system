@@ -16,7 +16,8 @@ import Layout from './components/Layout/Layout';
 // Pages
 import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
-import Register from './pages/Register';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import Attendance from './pages/Attendance';
 import Schedule from './pages/Schedule';
 import TimeOff from './pages/TimeOff';
@@ -75,7 +76,8 @@ const AppContent = () => {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password/:token" element={<ResetPassword />} />
       
       <Route path="/" element={
         <ProtectedRoute>

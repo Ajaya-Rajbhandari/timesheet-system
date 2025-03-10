@@ -12,51 +12,52 @@ const User = require('../models/User');
 router.post('/', auth, isManagerOrAdmin, async (req, res) => {
   try {
     const {
-      user,
-      title,
       startDate,
       endDate,
       startTime,
       endTime,
+      type,
       days,
-      recurrence,
-      location,
-      department,
-      notes,
-      color
+      notes
     } = req.body;
 
-    // Check if user exists
-    if (user) {
-      const userExists = await User.findById(user);
-      if (!userExists) {
-        return res.status(404).json({ message: 'User not found' });
-      }
-    }
+    console.log('Received schedule data:', {
+      startDate,
+      endDate,
+      startTime,
+      endTime,
+      type,
+      days,
+      notes
+    });
 
     // Create new schedule
     const schedule = new Schedule({
-      user,
-      title,
+      user: req.user.id,  // Set the current user as the schedule owner
       startDate: new Date(startDate),
       endDate: new Date(endDate),
-      startTime,
-      endTime,
+      startTime,  // Use the time string directly
+      endTime,    // Use the time string directly
+      type,
       days,
-      recurrence: recurrence || 'none',
-      location,
-      department,
       notes,
-      color,
       createdBy: req.user.id
     });
 
+    console.log('Schedule object before save:', schedule);
     await schedule.save();
+    console.log('Schedule saved successfully');
 
     res.json(schedule);
   } catch (err) {
-    console.error('Create schedule error:', err.message);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Create schedule error details:', {
+      error: err.message,
+      validation: err.errors
+    });
+    res.status(500).json({ 
+      message: err.message || 'Server error',
+      details: err.errors 
+    });
   }
 });
 
@@ -139,6 +140,10 @@ router.get('/my-schedule', auth, async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
     
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
+
     let query = { user: req.user.id };
     
     // Filter by date range if provided
@@ -150,15 +155,16 @@ router.get('/my-schedule', auth, async (req, res) => {
         }
       ];
     }
-    
+
     const schedules = await Schedule.find(query)
+      .populate('user', 'firstName lastName employeeId')
       .populate('createdBy', 'firstName lastName')
       .sort({ startDate: 1 });
-    
+
     res.json(schedules);
   } catch (err) {
     console.error('Get my schedules error:', err.message);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Error fetching your schedules' });
   }
 });
 
