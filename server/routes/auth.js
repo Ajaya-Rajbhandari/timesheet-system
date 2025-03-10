@@ -163,15 +163,8 @@ router.post('/login', async (req, res) => {
       return res.status(403).json({ message: 'Your account has been deactivated. Please contact your administrator.' });
     }
 
-    // TEMPORARY: Skip password verification for test users
-    let isMatch = false;
-    if (email.endsWith('@test.com')) {
-      console.log('Test user detected - bypassing password check');
-      isMatch = true;
-    } else {
-      isMatch = await user.comparePassword(password);
-    }
-    
+    // Check password for all users
+    const isMatch = await user.comparePassword(password);
     console.log('Password match:', isMatch);
     
     if (!isMatch) {
@@ -188,8 +181,8 @@ router.post('/login', async (req, res) => {
       role: user.role
     };
 
-    // Sign token
-    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1d' });
+    // Sign token with 24 hour expiry
+    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '24h' });
 
     res.json({
       token,
@@ -200,7 +193,8 @@ router.post('/login', async (req, res) => {
         email: user.email,
         role: user.role,
         department: user.department,
-        position: user.position
+        position: user.position,
+        employeeId: user.employeeId
       }
     });
   } catch (err) {

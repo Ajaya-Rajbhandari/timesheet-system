@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Container,
@@ -18,187 +18,199 @@ import {
   TableHead,
   TableRow,
   useTheme,
-  alpha
+  Divider,
+  ButtonGroup,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  List,
+  ListItem,
+  ListItemText
 } from '@mui/material';
-import { DatePicker } from '@mui/x-date-pickers';
 import {
   AccessTime as ClockIcon,
-  CheckCircle as CheckIcon,
-  Cancel as CancelIcon,
-  Timer as TimerIcon
+  Timer as TimerIcon,
+  LocalCafe as BreakIcon,
+  ArrowForward as EndBreakIcon
 } from '@mui/icons-material';
+import DatePicker from '@mui/lab/DatePicker';
+
 import moment from 'moment';
 import { useAuth } from '../contexts/AuthContext';
 import { useAttendance } from '../contexts/AttendanceContext';
 import { 
-  clockIn, 
-  clockOut, 
-  getCurrentStatus, 
   getAttendanceHistory,
-  recordAutoClockOut
+  getCurrentStatus
 } from '../services/attendanceService';
 
 const Attendance = () => {
   const theme = useTheme();
   const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
+  const { 
+    currentStatus, 
+    refreshStatus, 
+    getStatusText, 
+    getStatusColor,
+    clockIn: contextClockIn,
+    clockOut: contextClockOut,
+    startBreak: contextStartBreak,
+    endBreak: contextEndBreak
+  } = useAttendance();
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [currentTime, setCurrentTime] = useState(moment());
   const [selectedMonth, setSelectedMonth] = useState(moment());
-  const { currentStatus, updateStatus, fetchCurrentStatus } = useAttendance();
   const [attendanceHistory, setAttendanceHistory] = useState([]);
+  const [breakDialogOpen, setBreakDialogOpen] = useState(false);
+  const [selectedBreaks, setSelectedBreaks] = useState([]);
+  const [selectedDate, setSelectedDate] = useState('');
+
+  // Force refresh status when component mounts
+  useEffect(() => {
+    console.log('Attendance page mounted, forcing status refresh');
+    
+    // Only refresh if user is authenticated
+    if (user && user._id) {
+      refreshStatus(true);
+    } else {
+      console.log('User not authenticated yet, waiting for auth');
+    }
+  }, [refreshStatus, user]);
 
   // Update current time every minute and check for day change
   useEffect(() => {
     const timer = setInterval(() => {
-      const newTime = moment();
-      setCurrentTime(newTime);
+      const now = moment();
+      setCurrentTime(now);
       
-      // Check if it's a new day and reset status if needed
-      const lastClockInDay = currentStatus.clockInTime ? moment(currentStatus.clockInTime).format('YYYY-MM-DD') : null;
-      const today = newTime.format('YYYY-MM-DD');
-      
-      if (lastClockInDay && lastClockInDay !== today && currentStatus.isClockedIn) {
-        // Auto clock-out at the end of the previous day
-        const yesterdayEndTime = moment(lastClockInDay).endOf('day').format();
+      // Check if day has changed and user is still clocked in
+      if (currentStatus.isClockedIn && currentStatus.clockInTime) {
+        const clockInDate = moment(currentStatus.clockInTime).format('YYYY-MM-DD');
+        const currentDate = now.format('YYYY-MM-DD');
         
-        // Create new status with clock-out
-        const newStatus = {
-          isClockedIn: false,
-          clockInTime: null,
-          clockOutTime: null,
-          onBreak: false,
-          breakStartTime: null
-        };
-        
-        updateStatus(newStatus);
-        
-        // Add record for auto clock out
-        const newRecord = {
-          id: Date.now(),
-          date: lastClockInDay,
-          clockIn: currentStatus.clockInTime,
-          clockOut: yesterdayEndTime,
-          status: 'Auto-completed',
-          notes: 'System auto clock-out at end of day'
-        };
-        
-        setAttendanceHistory(prev => [newRecord, ...prev]);
+        if (clockInDate !== currentDate) {
+          console.log('Day changed, auto clocking out user');
+          
+          // Auto clock out at midnight
+          const clockOutTime = moment(clockInDate + 'T23:59:59');
+          
+          // Update status directly
+          contextClockOut();
+          
+          // Add record for auto clock out
+          const newRecord = {
+            date: clockInDate,
+            clockIn: currentStatus.clockInTime,
+            clockOut: clockOutTime,
+            autoClockOut: true
+          };
+          
+          console.log('Adding auto clock out record:', newRecord);
+          setAttendanceHistory(prev => [...prev, newRecord]);
+        }
       }
-    }, 60000);
+    }, 60000); // Update every minute
+
+    return () => clearInterval(timer); // Clear the interval on component unmount
+  }, [currentStatus, contextClockOut]);
+
+  // Fetch attendance data on component mount and when selectedMonth changes
+  const fetchAttendanceHistory = useCallback(async () => {
+    if (!selectedMonth) return;
     
-    return () => clearInterval(timer);
-  }, [currentStatus, updateStatus]);
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const startDate = selectedMonth.clone().startOf('month').format('YYYY-MM-DD');
+      const endDate = selectedMonth.clone().endOf('month').format('YYYY-MM-DD');
+      const historyData = await getAttendanceHistory(startDate, endDate);
+      setAttendanceHistory(historyData);
+    } catch (err) {
+      console.error('Failed to fetch attendance history:', err);
+      setAttendanceHistory([]);
+      setError('Failed to load attendance history. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedMonth]);
 
-  // Fetch attendance data on component mount
   useEffect(() => {
-    fetchData();
-  }, []);
-  
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      // Try to get the current status from the API
-      try {
-        // Use fetchCurrentStatus from the AttendanceContext instead
-        await fetchCurrentStatus();
-      } catch (err) {
-        // If API call fails, use the data from localStorage
-        console.log('Using cached attendance status from localStorage');
-      }
-      
-      // Get attendance history
-      try {
-        const startDate = selectedMonth.clone().startOf('month').format('YYYY-MM-DD');
-        const endDate = selectedMonth.clone().endOf('month').format('YYYY-MM-DD');
-        const historyData = await getAttendanceHistory(startDate, endDate);
-        setAttendanceHistory(historyData);
-      } catch (err) {
-        console.error('Failed to fetch attendance history:', err);
-        setAttendanceHistory([]);
-      }
-    } catch (err) {
-      setError('Failed to load attendance data. Please try again.');
-      console.error('Error:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+    fetchAttendanceHistory();
+  }, [fetchAttendanceHistory]);
 
+  // Handle clock in
   const handleClockIn = async () => {
+    setLoading(true);
+    setError(null);
     try {
-      setLoading(true);
-      setError(null);
+      await contextClockIn();
+      console.log('Clock in successful');
       
-      let clockInTime = moment().format();
-      
-      try {
-        // Try to call the API
-        const response = await clockIn();
-        clockInTime = response.clockInTime || clockInTime;
-        
-        // Refresh the attendance status from the server
-        await fetchCurrentStatus();
-      } catch (err) {
-        console.error('API call failed, using local time:', err);
-        // Continue with local time if API fails
-        
-        // Update local status
-        const newStatus = {
-          ...currentStatus,
-          isClockedIn: true,
-          clockInTime: clockInTime
-        };
-        
-        updateStatus(newStatus);
-      }
+      // Refresh history after status update
+      fetchAttendanceHistory();
     } catch (err) {
-      setError('Failed to clock in. Please try again.');
-      console.error('Error:', err);
+      console.error('Clock in error:', err);
+      setError(err.message || 'Failed to clock in');
     } finally {
       setLoading(false);
     }
   };
 
+  // Handle clock out
   const handleClockOut = async () => {
+    setLoading(true);
+    setError(null);
     try {
-      setLoading(true);
-      setError(null);
+      await contextClockOut();
+      console.log('Clock out successful');
       
-      let clockOutTime = moment().format();
-      
-      try {
-        // Try to call the API
-        const response = await clockOut();
-        clockOutTime = response.clockOutTime || clockOutTime;
-        
-        // Refresh the attendance status from the server
-        await fetchCurrentStatus();
-      } catch (err) {
-        console.error('API call failed, using local time:', err);
-        // Continue with local time if API fails
-        
-        // Update local status
-        const newStatus = {
-          ...currentStatus,
-          isClockedIn: false,
-          onBreak: false,
-          clockOutTime: clockOutTime
-        };
-        
-        updateStatus(newStatus);
-      }
+      // Refresh history after status update
+      fetchAttendanceHistory();
     } catch (err) {
-      setError('Failed to clock out. Please try again.');
-      console.error('Error:', err);
+      console.error('Clock out error:', err);
+      setError(err.message || 'Failed to clock out');
     } finally {
       setLoading(false);
     }
   };
 
-  // Calculate time elapsed since clock in
+  // Handle start break
+  const handleStartBreak = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      await contextStartBreak();
+      console.log('Start break successful');
+    } catch (err) {
+      console.error('Start break error:', err);
+      setError(err.message || 'Failed to start break');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle end break
+  const handleEndBreak = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      await contextEndBreak();
+      console.log('End break successful');
+    } catch (err) {
+      console.error('End break error:', err);
+      setError(err.message || 'Failed to end break');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Format time for display
+  const formatTime = (time) => {
+    return time ? moment(time).format('hh:mm:ss A') : '';
+  };
+
   const getElapsedTime = () => {
     if (!currentStatus.isClockedIn || !currentStatus.clockInTime) {
       return '00:00:00';
@@ -214,7 +226,6 @@ const Attendance = () => {
     return `${hours}:${minutes}:${seconds}`;
   };
   
-  // Check if user has been clocked in for too long (more than 12 hours)
   const isLongShift = () => {
     if (!currentStatus.isClockedIn || !currentStatus.clockInTime) {
       return false;
@@ -226,7 +237,44 @@ const Attendance = () => {
     return duration.asHours() >= 12;
   };
 
-  if (loading) {
+  const calculateTotalBreakTime = (breaks) => {
+    if (!breaks || breaks.length === 0) return 0;
+    
+    let totalBreakTime = 0;
+    breaks.forEach(breakItem => {
+      if (breakItem.startTime && breakItem.endTime) {
+        totalBreakTime += moment.duration(moment(breakItem.endTime).diff(moment(breakItem.startTime))).asMinutes();
+      }
+    });
+    return Math.round(totalBreakTime);
+  };
+
+  const handleBreakDetailsClick = (record) => {
+    if (record.breaks && record.breaks.length > 0) {
+      setSelectedBreaks(record.breaks);
+      setSelectedDate(moment(record.clockIn).format('MMMM D, YYYY'));
+      setBreakDialogOpen(true);
+    }
+  };
+
+  const handleCloseBreakDialog = () => {
+    setBreakDialogOpen(false);
+  };
+
+  const formatBreakDuration = (startTime, endTime) => {
+    if (!startTime || !endTime) return 'N/A';
+    
+    const duration = moment.duration(moment(endTime).diff(moment(startTime)));
+    const hours = Math.floor(duration.asHours());
+    const minutes = duration.minutes();
+    
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    }
+    return `${minutes} minutes`;
+  };
+
+  if (loading || !currentStatus) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
         <CircularProgress />
@@ -236,7 +284,6 @@ const Attendance = () => {
 
   return (
     <Container maxWidth="lg">
-      {/* Welcome Section */}
       <Box sx={{ mb: 4, textAlign: 'center' }}>
         <Typography variant="h4" gutterBottom sx={{ 
           fontWeight: 600,
@@ -257,7 +304,7 @@ const Attendance = () => {
         </Typography>
       </Box>
 
-      {error && (
+      {error && !loading && (
         <Alert severity="error" sx={{ mb: 3 }}>
           {error}
         </Alert>
@@ -269,7 +316,6 @@ const Attendance = () => {
         </Alert>
       )}
 
-      {/* Status Card */}
       <Card sx={{ 
         mb: 4, 
         borderRadius: 2,
@@ -280,13 +326,15 @@ const Attendance = () => {
       }}>
         <Box sx={{ 
           p: 2, 
-          background: currentStatus.isClockedIn 
-            ? 'linear-gradient(45deg, #4CAF50 30%, #81C784 90%)'
-            : 'linear-gradient(45deg, #F44336 30%, #E57373 90%)',
+          background: currentStatus.onBreak
+            ? 'linear-gradient(45deg, #FF9800 30%, #FFB74D 90%)'
+            : currentStatus.isClockedIn 
+              ? 'linear-gradient(45deg, #4CAF50 30%, #81C784 90%)'
+              : 'linear-gradient(45deg, #F44336 30%, #E57373 90%)',
           color: 'white'
         }}>
           <Typography variant="h6" sx={{ fontWeight: 600 }}>
-            Current Status: {currentStatus.isClockedIn ? 'Clocked In' : 'Clocked Out'}
+            Current Status: {getStatusText()}
           </Typography>
         </Box>
         <CardContent>
@@ -300,9 +348,9 @@ const Attendance = () => {
                   </Typography>
                   <Typography variant="h6">
                     {currentStatus.isClockedIn && currentStatus.clockInTime 
-                      ? moment(currentStatus.clockInTime).format('hh:mm A')
+                      ? formatTime(currentStatus.clockInTime)
                       : currentStatus.clockOutTime 
-                        ? moment(currentStatus.clockOutTime).format('hh:mm A')
+                        ? formatTime(currentStatus.clockOutTime)
                         : 'Not available'}
                   </Typography>
                 </Box>
@@ -325,8 +373,26 @@ const Attendance = () => {
               </Grid>
             )}
             
+            {currentStatus.onBreak && (
+              <Grid item xs={12}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mt: 1 }}>
+                  <Chip 
+                    icon={<BreakIcon />} 
+                    label={`On Break since ${formatTime(currentStatus.breakStartTime)}`} 
+                    color="warning" 
+                    variant="outlined" 
+                    sx={{ fontSize: '1rem', py: 2 }}
+                  />
+                </Box>
+              </Grid>
+            )}
+            
             <Grid item xs={12}>
-              <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2, flexDirection: 'column', alignItems: 'center' }}>
+                {(loading || currentStatus.isLoading) && (
+                  <CircularProgress sx={{ mb: 2 }} />
+                )}
+                
                 {!currentStatus.isClockedIn ? (
                   <Button
                     variant="contained"
@@ -334,23 +400,49 @@ const Attendance = () => {
                     size="large"
                     startIcon={<ClockIcon />}
                     onClick={handleClockIn}
-                    disabled={loading}
+                    disabled={loading || currentStatus.isLoading}
                     sx={{ minWidth: 150 }}
                   >
                     Clock In
                   </Button>
                 ) : (
-                  <Button
-                    variant="contained"
-                    color="error"
-                    size="large"
-                    startIcon={<ClockIcon />}
-                    onClick={handleClockOut}
-                    disabled={loading}
-                    sx={{ minWidth: 150 }}
-                  >
-                    Clock Out
-                  </Button>
+                  <>
+                    <ButtonGroup variant="contained" size="large" sx={{ mb: 2 }}>
+                      {!currentStatus.onBreak ? (
+                        <Button
+                          color="warning"
+                          startIcon={<BreakIcon />}
+                          onClick={handleStartBreak}
+                          disabled={loading || currentStatus.isLoading}
+                          sx={{ minWidth: 150 }}
+                        >
+                          Take a Break
+                        </Button>
+                      ) : (
+                        <Button
+                          color="info"
+                          startIcon={<EndBreakIcon />}
+                          onClick={handleEndBreak}
+                          disabled={loading || currentStatus.isLoading}
+                          sx={{ minWidth: 150 }}
+                        >
+                          End Break
+                        </Button>
+                      )}
+                    </ButtonGroup>
+                    
+                    <Button
+                      variant="contained"
+                      color="error"
+                      size="large"
+                      startIcon={<ClockIcon />}
+                      onClick={handleClockOut}
+                      disabled={loading || currentStatus.isLoading}
+                      sx={{ minWidth: 150 }}
+                    >
+                      Clock Out
+                    </Button>
+                  </>
                 )}
               </Box>
             </Grid>
@@ -358,7 +450,6 @@ const Attendance = () => {
         </CardContent>
       </Card>
 
-      {/* History Section */}
       <Card sx={{ 
         background: theme.palette.mode === 'dark'
           ? 'linear-gradient(135deg, rgba(37, 37, 37, 0.9), rgba(30, 30, 30, 0.9))'
@@ -388,6 +479,7 @@ const Attendance = () => {
                   <TableCell>Clock In</TableCell>
                   <TableCell>Clock Out</TableCell>
                   <TableCell>Total Hours</TableCell>
+                  <TableCell>Breaks</TableCell>
                   <TableCell>Status</TableCell>
                 </TableRow>
               </TableHead>
@@ -405,10 +497,22 @@ const Attendance = () => {
                         : '-'}
                     </TableCell>
                     <TableCell>
+                      {record.breaks && record.breaks.length > 0 ? (
+                        <Chip
+                          label={`${record.breaks.length} break${record.breaks.length > 1 ? 's' : ''} (${calculateTotalBreakTime(record.breaks)} min)`}
+                          color="warning"
+                          size="small"
+                          onClick={() => handleBreakDetailsClick(record)}
+                        />
+                      ) : (
+                        '-'
+                      )}
+                    </TableCell>
+                    <TableCell>
                       <Chip
-                        label={record.status}
+                        label={record.status || (record.clockOut ? 'Completed' : 'Active')}
                         color={
-                          record.status === 'Present' ? 'success' :
+                          record.status === 'Present' || record.clockOut ? 'success' :
                           record.status === 'Late' ? 'warning' :
                           'error'
                         }
@@ -422,8 +526,56 @@ const Attendance = () => {
           </TableContainer>
         </CardContent>
       </Card>
+
+      {/* Break Details Dialog */}
+      <Dialog
+        open={breakDialogOpen}
+        onClose={handleCloseBreakDialog}
+        aria-labelledby="break-dialog-title"
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle id="break-dialog-title">
+          Break Details - {selectedDate}
+        </DialogTitle>
+        <DialogContent dividers>
+          {selectedBreaks.length > 0 ? (
+            <List>
+              {selectedBreaks.map((breakItem, index) => (
+                <ListItem key={index} divider={index < selectedBreaks.length - 1}>
+                  <ListItemText
+                    primary={`Break #${index + 1}`}
+                    secondary={
+                      <React.Fragment>
+                        <Typography component="span" variant="body2" color="textPrimary">
+                          Start: {moment(breakItem.startTime).format('HH:mm:ss')}
+                        </Typography>
+                        <br />
+                        <Typography component="span" variant="body2" color="textPrimary">
+                          End: {breakItem.endTime ? moment(breakItem.endTime).format('HH:mm:ss') : 'Not ended'}
+                        </Typography>
+                        <br />
+                        <Typography component="span" variant="body2" color="textPrimary">
+                          Duration: {breakItem.endTime ? formatBreakDuration(breakItem.startTime, breakItem.endTime) : 'In progress'}
+                        </Typography>
+                      </React.Fragment>
+                    }
+                  />
+                </ListItem>
+              ))}
+            </List>
+          ) : (
+            <Typography variant="body1">No break details available.</Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseBreakDialog} color="primary">
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 };
 
-export default Attendance; 
+export default Attendance;
