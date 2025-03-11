@@ -24,6 +24,7 @@ import TimeOff from './pages/TimeOff';
 import Reports from './pages/Reports';
 import Users from './pages/Users';
 import ShiftSwaps from './pages/ShiftSwaps';
+import Profile from './pages/Profile';
 import NotFound from './pages/NotFound';
 
 // Create theme for initial loading
@@ -92,6 +93,7 @@ const AppContent = () => {
         <Route path="reports" element={<Reports />} />
         <Route path="users" element={<Users />} />
         <Route path="shift-swaps" element={<ShiftSwaps />} />
+        <Route path="profile" element={<Profile />} />
       </Route>
       
       <Route path="*" element={<NotFound />} />

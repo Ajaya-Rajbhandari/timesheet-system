@@ -102,7 +102,7 @@ router.post('/register', async (req, res) => {
 
     // Create JWT payload
     const payload = {
-      id: user.id,
+      userId: user.id,
       role: user.role
     };
 
@@ -179,7 +179,7 @@ router.post('/login', async (req, res) => {
 
     // Create JWT payload
     const payload = {
-      id: user.id,
+      userId: user.id,
       role: user.role
     };
 

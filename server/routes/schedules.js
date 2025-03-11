@@ -12,6 +12,7 @@ const User = require('../models/User');
 router.post('/', auth, isManagerOrAdmin, async (req, res) => {
   try {
     const {
+      userId,  
       startDate,
       endDate,
       startTime,
@@ -21,32 +22,40 @@ router.post('/', auth, isManagerOrAdmin, async (req, res) => {
       notes
     } = req.body;
 
-    console.log('Received schedule data:', {
-      startDate,
-      endDate,
+    // Validate that userId is provided
+    if (!userId) {
+      return res.status(400).json({ message: 'Employee ID is required' });
+    }
+
+    // Check if the user exists
+    const targetUser = await User.findById(userId);
+    if (!targetUser) {
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+
+    console.log('Creating schedule for user:', userId);
+
+    // Create new schedule
+    const schedule = new Schedule({
+      user: userId,  
+      startDate: new Date(startDate),
+      endDate: new Date(endDate),
       startTime,
       endTime,
       type,
       days,
-      notes
-    });
-
-    // Create new schedule
-    const schedule = new Schedule({
-      user: req.user.id,  // Set the current user as the schedule owner
-      startDate: new Date(startDate),
-      endDate: new Date(endDate),
-      startTime,  // Use the time string directly
-      endTime,    // Use the time string directly
-      type,
-      days,
       notes,
-      createdBy: req.user.id
+      createdBy: req.user.id,  
+      updatedBy: req.user.id
     });
 
-    console.log('Schedule object before save:', schedule);
     await schedule.save();
-    console.log('Schedule saved successfully');
+    
+    // Populate user and creator details before sending response
+    await schedule.populate([
+      { path: 'user', select: 'firstName lastName employeeId' },
+      { path: 'createdBy', select: 'firstName lastName' }
+    ]);
 
     res.json(schedule);
   } catch (err) {

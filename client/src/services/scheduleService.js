@@ -1,14 +1,9 @@
 import axios from '../utils/axios';
 
 // Get all schedules (admin/manager)
-export const fetchAllSchedules = async (startDate, endDate) => {
-  if (!startDate || !endDate) {
-    throw 'Start date and end date are required';
-  }
+export const fetchAllSchedules = async () => {
   try {
-    const response = await axios.get('/schedules', {
-      params: { startDate, endDate }
-    });
+    const response = await axios.get('/schedules');
     return response.data;
   } catch (error) {
     if (error.response?.status === 401) {
@@ -22,14 +17,9 @@ export const fetchAllSchedules = async (startDate, endDate) => {
 };
 
 // Get current user's schedules
-export const getMySchedules = async (startDate, endDate) => {
-  if (!startDate || !endDate) {
-    throw 'Start date and end date are required';
-  }
+export const getMySchedules = async () => {
   try {
-    const response = await axios.get('/schedules/my-schedule', {
-      params: { startDate, endDate }
-    });
+    const response = await axios.get('/schedules/my-schedule');
     return response.data;
   } catch (error) {
     if (error.response?.status === 401) {
@@ -89,15 +79,15 @@ export const fetchDepartmentSchedules = async (department, startDate, endDate) =
 
 // Create a new schedule (admin/manager only)
 export const createSchedule = async (scheduleData) => {
-  if (!scheduleData) {
-    throw 'Schedule data is required';
+  if (!scheduleData.userId) {
+    throw 'Employee ID is required for schedule creation';
   }
   try {
     const response = await axios.post('/schedules', scheduleData);
     return response.data;
   } catch (error) {
     if (error.response?.status === 401) {
-      throw 'Please log in to create a schedule';
+      throw 'Please log in to create schedules';
     }
     if (error.response?.status === 403) {
       throw 'Only managers and administrators can create schedules';
@@ -111,18 +101,21 @@ export const updateSchedule = async (id, scheduleData) => {
   if (!id) {
     throw 'Schedule ID is required';
   }
-  if (!scheduleData) {
-    throw 'Schedule data is required';
+  if (!scheduleData.userId) {
+    throw 'Employee ID is required for schedule update';
   }
   try {
     const response = await axios.put(`/schedules/${id}`, scheduleData);
     return response.data;
   } catch (error) {
     if (error.response?.status === 401) {
-      throw 'Please log in to update a schedule';
+      throw 'Please log in to update schedules';
     }
     if (error.response?.status === 403) {
       throw 'Only managers and administrators can update schedules';
+    }
+    if (error.response?.status === 404) {
+      throw 'Schedule not found';
     }
     throw error.response?.data?.message || 'Error updating schedule';
   }

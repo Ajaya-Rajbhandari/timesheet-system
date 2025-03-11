@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Box,
   Container,
@@ -26,13 +26,18 @@ import {
   DialogActions,
   List,
   ListItem,
-  ListItemText
+  ListItemText,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails
 } from '@mui/material';
 import {
   AccessTime as ClockIcon,
   Timer as TimerIcon,
   LocalCafe as BreakIcon,
-  ArrowForward as EndBreakIcon
+  ArrowForward as EndBreakIcon,
+  ExpandMore as ExpandMoreIcon,
+  CalendarToday as CalendarIcon
 } from '@mui/icons-material';
 import DatePicker from '@mui/lab/DatePicker';
 
@@ -62,9 +67,13 @@ const Attendance = () => {
   const [currentTime, setCurrentTime] = useState(moment());
   const [selectedMonth, setSelectedMonth] = useState(moment());
   const [attendanceHistory, setAttendanceHistory] = useState([]);
+  const [groupedAttendance, setGroupedAttendance] = useState({});
   const [breakDialogOpen, setBreakDialogOpen] = useState(false);
   const [selectedBreaks, setSelectedBreaks] = useState([]);
   const [selectedDate, setSelectedDate] = useState('');
+  
+  // Reference for the timer interval
+  const timerRef = useRef(null);
 
   // Force refresh status when component mounts
   useEffect(() => {
@@ -78,9 +87,15 @@ const Attendance = () => {
     }
   }, [refreshStatus, user]);
 
-  // Update current time every minute and check for day change
+  // Update current time every second for dynamic time display
   useEffect(() => {
-    const timer = setInterval(() => {
+    // Clear any existing timer first
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
+    
+    // Set up a timer that updates every second
+    timerRef.current = setInterval(() => {
       const now = moment();
       setCurrentTime(now);
       
@@ -110,10 +125,41 @@ const Attendance = () => {
           setAttendanceHistory(prev => [...prev, newRecord]);
         }
       }
-    }, 60000); // Update every minute
+    }, 1000); // Update every second for smoother time display
 
-    return () => clearInterval(timer); // Clear the interval on component unmount
+    return () => {
+      // Clean up interval on component unmount
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    }; 
   }, [currentStatus, contextClockOut]);
+
+  // Group attendance data by day when attendance history changes
+  useEffect(() => {
+    if (attendanceHistory && attendanceHistory.length > 0) {
+      const grouped = attendanceHistory.reduce((acc, record) => {
+        // Use date from clockIn as the grouping key
+        const dateKey = moment(record.clockIn).format('YYYY-MM-DD');
+        
+        if (!acc[dateKey]) {
+          acc[dateKey] = [];
+        }
+        
+        acc[dateKey].push(record);
+        return acc;
+      }, {});
+      
+      // Sort the records within each day
+      Object.keys(grouped).forEach(date => {
+        grouped[date].sort((a, b) => moment(b.clockIn).diff(moment(a.clockIn)));
+      });
+      
+      setGroupedAttendance(grouped);
+    } else {
+      setGroupedAttendance({});
+    }
+  }, [attendanceHistory]);
 
   // Fetch attendance data on component mount and when selectedMonth changes
   const fetchAttendanceHistory = useCallback(async () => {
@@ -274,6 +320,30 @@ const Attendance = () => {
     return `${minutes} minutes`;
   };
 
+  // Calculate total hours for a day
+  const calculateDailyTotalHours = (records) => {
+    if (!records || records.length === 0) return '0.00';
+    
+    let totalMinutes = 0;
+    
+    records.forEach(record => {
+      if (record.clockIn && record.clockOut) {
+        // Calculate duration excluding breaks
+        let duration = moment.duration(moment(record.clockOut).diff(moment(record.clockIn)));
+        let durationMinutes = duration.asMinutes();
+        
+        // Subtract break times
+        const breakMinutes = calculateTotalBreakTime(record.breaks);
+        durationMinutes -= breakMinutes;
+        
+        totalMinutes += durationMinutes;
+      }
+    });
+    
+    // Convert minutes to hours with 2 decimal places
+    return (totalMinutes / 60).toFixed(2);
+  };
+
   if (loading || !currentStatus) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
@@ -300,7 +370,7 @@ const Attendance = () => {
           {currentTime.format('dddd, MMMM D, YYYY')}
         </Typography>
         <Typography variant="h3" sx={{ fontFamily: 'monospace', mt: 2 }}>
-          {currentTime.format('HH:mm')}
+          {currentTime.format('HH:mm:ss')}
         </Typography>
       </Box>
 
@@ -468,62 +538,102 @@ const Attendance = () => {
             />
           </Box>
           
-          <TableContainer component={Paper} sx={{ 
-            background: 'transparent',
-            boxShadow: 'none'
-          }}>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Date</TableCell>
-                  <TableCell>Clock In</TableCell>
-                  <TableCell>Clock Out</TableCell>
-                  <TableCell>Total Hours</TableCell>
-                  <TableCell>Breaks</TableCell>
-                  <TableCell>Status</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {attendanceHistory.map((record) => (
-                  <TableRow key={record.id}>
-                    <TableCell>{moment(record.date).format('MMM D, YYYY')}</TableCell>
-                    <TableCell>{moment(record.clockIn).format('HH:mm')}</TableCell>
-                    <TableCell>
-                      {record.clockOut ? moment(record.clockOut).format('HH:mm') : '-'}
-                    </TableCell>
-                    <TableCell>
-                      {record.clockOut 
-                        ? moment.duration(moment(record.clockOut).diff(record.clockIn)).asHours().toFixed(2)
-                        : '-'}
-                    </TableCell>
-                    <TableCell>
-                      {record.breaks && record.breaks.length > 0 ? (
-                        <Chip
-                          label={`${record.breaks.length} break${record.breaks.length > 1 ? 's' : ''} (${calculateTotalBreakTime(record.breaks)} min)`}
-                          color="warning"
-                          size="small"
-                          onClick={() => handleBreakDetailsClick(record)}
-                        />
-                      ) : (
-                        '-'
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={record.status || (record.clockOut ? 'Completed' : 'Active')}
-                        color={
-                          record.status === 'Present' || record.clockOut ? 'success' :
-                          record.status === 'Late' ? 'warning' :
-                          'error'
-                        }
+          {Object.keys(groupedAttendance).length > 0 ? (
+            Object.keys(groupedAttendance)
+              .sort((a, b) => moment(b).diff(moment(a))) // Sort dates in descending order
+              .map(date => (
+                <Accordion key={date} sx={{ mb: 2, boxShadow: 1 }}>
+                  <AccordionSummary
+                    expandIcon={<ExpandMoreIcon />}
+                    aria-controls={`attendance-${date}-content`}
+                    id={`attendance-${date}-header`}
+                    sx={{ 
+                      backgroundColor: theme.palette.mode === 'dark' 
+                        ? 'rgba(255, 255, 255, 0.05)' 
+                        : 'rgba(0, 0, 0, 0.03)' 
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', justifyContent: 'space-between' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <CalendarIcon sx={{ mr: 1 }} />
+                        <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+                          {moment(date).format('dddd, MMMM D, YYYY')}
+                        </Typography>
+                      </Box>
+                      <Chip 
+                        label={`${calculateDailyTotalHours(groupedAttendance[date])} hours`}
+                        color="primary"
                         size="small"
+                        sx={{ fontWeight: 'bold' }}
                       />
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                    </Box>
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    <TableContainer component={Paper} sx={{ 
+                      background: 'transparent',
+                      boxShadow: 'none'
+                    }}>
+                      <Table size="small">
+                        <TableHead>
+                          <TableRow>
+                            <TableCell>Clock In</TableCell>
+                            <TableCell>Clock Out</TableCell>
+                            <TableCell>Total Hours</TableCell>
+                            <TableCell>Breaks</TableCell>
+                            <TableCell>Status</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {groupedAttendance[date].map((record) => (
+                            <TableRow key={record._id}>
+                              <TableCell>{moment(record.clockIn).format('HH:mm:ss')}</TableCell>
+                              <TableCell>
+                                {record.clockOut ? moment(record.clockOut).format('HH:mm:ss') : '-'}
+                              </TableCell>
+                              <TableCell>
+                                {record.clockOut 
+                                  ? (moment.duration(moment(record.clockOut).diff(moment(record.clockIn))).asHours() - 
+                                     (calculateTotalBreakTime(record.breaks) / 60)).toFixed(2)
+                                  : '-'}
+                              </TableCell>
+                              <TableCell>
+                                {record.breaks && record.breaks.length > 0 ? (
+                                  <Chip
+                                    label={`${record.breaks.length} break${record.breaks.length > 1 ? 's' : ''} (${calculateTotalBreakTime(record.breaks)} min)`}
+                                    color="warning"
+                                    size="small"
+                                    onClick={() => handleBreakDetailsClick(record)}
+                                  />
+                                ) : (
+                                  '-'
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                <Chip
+                                  label={record.status || (record.clockOut ? 'Completed' : 'Active')}
+                                  color={
+                                    record.status === 'Present' || record.clockOut ? 'success' :
+                                    record.status === 'Late' ? 'warning' :
+                                    'error'
+                                  }
+                                  size="small"
+                                />
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  </AccordionDetails>
+                </Accordion>
+              ))
+          ) : (
+            <Box sx={{ textAlign: 'center', py: 4 }}>
+              <Typography variant="body1" color="textSecondary">
+                No attendance records found for the selected month.
+              </Typography>
+            </Box>
+          )}
         </CardContent>
       </Card>
 

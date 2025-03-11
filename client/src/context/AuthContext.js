@@ -7,50 +7,69 @@ const AuthContext = createContext();
 export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [token, setToken] = useState(localStorage.getItem('token'));
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [authState, setAuthState] = useState({
+    token: localStorage.getItem('token') || '',
+    user: JSON.parse(localStorage.getItem('user')) || null,
+    isAuthenticated: !!localStorage.getItem('token'),
+    loading: true,
+    error: null,
+  });
+
+  // Set axios default headers
+  useEffect(() => {
+    if (authState.token) {
+      axiosInstance.defaults.headers.common['x-auth-token'] = authState.token;
+    } else {
+      delete axiosInstance.defaults.headers.common['x-auth-token'];
+    }
+  }, [authState.token]);
 
   // Load user data if token exists
   useEffect(() => {
     const loadUser = async () => {
-      if (!token) {
-        setLoading(false);
+      if (!authState.token) {
+        setAuthState((prevAuthState) => ({ ...prevAuthState, loading: false }));
         return;
       }
 
       try {
         const res = await axiosInstance.get('/auth/user');
-        setUser(res.data);
-        setError(null);
+        setAuthState((prevAuthState) => ({ ...prevAuthState, user: res.data, loading: false }));
       } catch (err) {
         console.error('Error loading user:', err);
-        setError('Failed to authenticate user');
+        setAuthState((prevAuthState) => ({ ...prevAuthState, error: 'Failed to authenticate user', loading: false }));
         logout();
-      } finally {
-        setLoading(false);
       }
     };
 
     loadUser();
-  }, [token]);
+  }, [authState.token]);
 
   // Register user
   const register = async (formData) => {
     try {
       const res = await axiosInstance.post('/auth/register', formData);
-      const { token: newToken, user: userData } = res.data;
-      
-      localStorage.setItem('token', newToken);
-      setToken(newToken);
-      setUser(userData);
-      setError(null);
-      
-      return { user: userData, token: newToken };
+      const { token, user } = res.data;
+
+      // Set auth state
+      setAuthState({
+        token,
+        user,
+        isAuthenticated: true,
+        error: null,
+      });
+
+      // Set local storage
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(user));
+
+      // Set axios headers
+      axiosInstance.defaults.headers.common['x-auth-token'] = token;
+
+      return { user, token };
     } catch (err) {
-      console.error('Registration error:', err);
-      setError(err.response?.data?.message || 'Registration failed');
+      console.error('Registration error:', err.response?.data?.message || err.message);
+      setAuthState((prevAuthState) => ({ ...prevAuthState, error: err.response?.data?.message || 'Registration failed' }));
       throw err;
     }
   };
@@ -58,36 +77,48 @@ export const AuthProvider = ({ children }) => {
   // Login user
   const login = async (email, password) => {
     try {
-      console.log('Attempting login with:', { email, hasPassword: !!password });
-      
-      const res = await axiosInstance.post('/auth/login', { email, password });
-      console.log('Login response:', res.data);
-      
-      const { token: newToken, user: userData } = res.data;
-      
-      localStorage.setItem('token', newToken);
-      setToken(newToken);
-      setUser(userData);
-      setError(null);
-      
-      return { user: userData, token: newToken };
-    } catch (err) {
-      console.error('Login error details:', {
-        status: err.response?.status,
-        message: err.response?.data?.message,
-        error: err.message
+      const response = await axiosInstance.post('/auth/login', { email, password });
+      const { token, user } = response.data;
+
+      // Set auth state
+      setAuthState({
+        token,
+        user,
+        isAuthenticated: true,
+        error: null,
       });
-      setError(err.response?.data?.message || 'Invalid credentials');
-      throw err;
+
+      // Set local storage
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(user));
+
+      // Set axios headers
+      axiosInstance.defaults.headers.common['x-auth-token'] = token;
+
+      return true;
+    } catch (err) {
+      console.error('Login error:', err.response?.data?.message || err.message);
+      setAuthState((prevAuthState) => ({ ...prevAuthState, error: err.response?.data?.message || 'Invalid credentials' }));
+      return false;
     }
   };
 
   // Logout user
   const logout = () => {
+    // Clear auth state
+    setAuthState({
+      token: '',
+      user: null,
+      isAuthenticated: false,
+      error: null,
+    });
+
+    // Clear local storage
     localStorage.removeItem('token');
-    setToken(null);
-    setUser(null);
-    setError(null);
+    localStorage.removeItem('user');
+
+    // Remove axios headers
+    delete axiosInstance.defaults.headers.common['x-auth-token'];
   };
 
   // Change password
@@ -97,11 +128,11 @@ export const AuthProvider = ({ children }) => {
         currentPassword,
         newPassword
       });
-      setError(null);
+      setAuthState((prevAuthState) => ({ ...prevAuthState, error: null }));
       return res.data;
     } catch (err) {
       console.error('Change password error:', err);
-      setError(err.response?.data?.message || 'Failed to change password');
+      setAuthState((prevAuthState) => ({ ...prevAuthState, error: err.response?.data?.message || 'Failed to change password' }));
       throw err;
     }
   };
@@ -110,14 +141,14 @@ export const AuthProvider = ({ children }) => {
   const updateProfile = async (userId, userData) => {
     try {
       const res = await axiosInstance.put(`/users/${userId}`, userData);
-      if (user && user.id === userId) {
-        setUser({ ...user, ...res.data });
+      if (authState.user && authState.user.id === userId) {
+        setAuthState((prevAuthState) => ({ ...prevAuthState, user: { ...prevAuthState.user, ...res.data } }));
       }
-      setError(null);
+      setAuthState((prevAuthState) => ({ ...prevAuthState, error: null }));
       return res.data;
     } catch (err) {
       console.error('Update profile error:', err);
-      setError(err.response?.data?.message || 'Failed to update profile');
+      setAuthState((prevAuthState) => ({ ...prevAuthState, error: err.response?.data?.message || 'Failed to update profile' }));
       throw err;
     }
   };
@@ -125,18 +156,14 @@ export const AuthProvider = ({ children }) => {
   return (
     <AuthContext.Provider
       value={{
-        user,
-        token,
-        loading,
-        error,
-        register,
+        ...authState,
         login,
         logout,
+        register,
         changePassword,
         updateProfile,
-        isAuthenticated: !!token,
-        isAdmin: user?.role === 'admin',
-        isManager: user?.role === 'manager' || user?.role === 'admin'
+        isAdmin: authState.user?.role === 'admin',
+        isManager: authState.user?.role === 'manager' || authState.user?.role === 'admin'
       }}
     >
       {children}

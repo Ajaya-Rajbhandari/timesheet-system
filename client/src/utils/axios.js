@@ -5,8 +5,7 @@ const instance = axios.create({
   baseURL: '/api', // Use relative path since we have proxy in package.json
   headers: {
     'Content-Type': 'application/json'
-  },
-  withCredentials: true
+  }
 });
 
 // Add request interceptor to add auth token
@@ -14,7 +13,8 @@ instance.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
     if (token) {
-      config.headers['Authorization'] = `Bearer ${token}`;
+      // Use x-auth-token header instead of Authorization Bearer
+      config.headers['x-auth-token'] = token;
     }
     return config;
   },

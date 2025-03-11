@@ -8,6 +8,7 @@ const AttendanceContext = createContext();
 // Constants
 const STORAGE_KEY = 'attendanceStatus';
 const REFRESH_INTERVAL = 15000; // 15 seconds - more frequent updates for better sync
+const RETRY_DELAY = 3000; // 3 seconds - delay before retrying after an error
 
 export const useAttendance = () => {
   const context = useContext(AttendanceContext);
@@ -35,6 +36,10 @@ export const AttendanceProvider = ({ children }) => {
   const lastServerRefresh = useRef(null);
   // Track if we're waiting for auth to complete
   const waitingForAuth = useRef(true);
+  // Track retry attempts
+  const retryAttempts = useRef(0);
+  // Track retry timeout
+  const retryTimeout = useRef(null);
 
   // Debounce the status update function to prevent rapid consecutive updates
   const debouncedUpdateStatus = useRef(debounce((newStatus) => {
@@ -81,7 +86,18 @@ export const AttendanceProvider = ({ children }) => {
     debouncedUpdateStatus.current(newStatus);
   }, []);
 
+  // Clear retry timeout if it exists
+  const clearRetryTimeout = useCallback(() => {
+    if (retryTimeout.current) {
+      clearTimeout(retryTimeout.current);
+      retryTimeout.current = null;
+    }
+  }, []);
+
   const refreshStatus = useCallback(async (force = false) => {
+    // Clear any existing retry timeout
+    clearRetryTimeout();
+    
     // Don't attempt to refresh while auth is still loading
     if (authLoading) {
       console.log('Auth still loading, deferring refresh');
@@ -90,6 +106,16 @@ export const AttendanceProvider = ({ children }) => {
     
     if (!isAuthenticated) {
       console.log('Not authenticated, skipping refresh');
+      // Reset status to a clean state when not authenticated
+      setCurrentStatus({
+        isClockedIn: false,
+        clockInTime: null,
+        clockOutTime: null,
+        onBreak: false,
+        breakStartTime: null,
+        isLoading: false,
+        error: null
+      });
       return;
     }
     
@@ -109,7 +135,7 @@ export const AttendanceProvider = ({ children }) => {
     }
 
     try {
-      setCurrentStatus(prev => ({ ...prev, isLoading: true }));
+      setCurrentStatus(prev => ({ ...prev, isLoading: true, error: null }));
       console.log('Refreshing attendance status from server for user:', user._id);
       
       const status = await getCurrentStatus();
@@ -141,6 +167,8 @@ export const AttendanceProvider = ({ children }) => {
       
       // Mark initial load as complete
       initialLoadComplete.current = true;
+      // Reset retry attempts on success
+      retryAttempts.current = 0;
       
       return updatedStatus;
     } catch (err) {
@@ -158,25 +186,49 @@ export const AttendanceProvider = ({ children }) => {
           setCurrentStatus(prev => ({
             ...parsedStatus,
             isLoading: false,
-            error: err.message || 'Failed to get attendance status'
+            error: null // Don't show error if we have cached data
           }));
-        } else {
-          setCurrentStatus(prev => ({
-            ...prev,
-            isLoading: false,
-            error: err.message || 'Failed to get attendance status'
-          }));
+          
+          // Schedule a retry
+          scheduleRetry();
+          
+          return;
         }
       } catch (cacheErr) {
         console.error('Error loading from cache:', cacheErr);
-        setCurrentStatus(prev => ({
-          ...prev,
-          isLoading: false,
-          error: err.message || 'Failed to get attendance status'
-        }));
       }
+      
+      // If we reach here, both server and cache failed
+      setCurrentStatus(prev => ({
+        ...prev,
+        isLoading: false,
+        error: 'Unable to load attendance status. Please try again.'
+      }));
+      
+      // Schedule a retry
+      scheduleRetry();
     }
-  }, [isAuthenticated, user, authLoading, saveStatusToCache]);
+  }, [isAuthenticated, user, authLoading, saveStatusToCache, clearRetryTimeout]);
+
+  // Schedule a retry with exponential backoff
+  const scheduleRetry = useCallback(() => {
+    // Clear any existing retry timeout
+    clearRetryTimeout();
+    
+    // Increment retry attempts
+    retryAttempts.current += 1;
+    
+    // Calculate backoff delay (max 30 seconds)
+    const backoffDelay = Math.min(RETRY_DELAY * Math.pow(1.5, retryAttempts.current - 1), 30000);
+    
+    console.log(`Scheduling retry attempt ${retryAttempts.current} in ${backoffDelay}ms`);
+    
+    // Schedule retry
+    retryTimeout.current = setTimeout(() => {
+      console.log(`Executing retry attempt ${retryAttempts.current}`);
+      refreshStatus(true);
+    }, backoffDelay);
+  }, [clearRetryTimeout, refreshStatus]);
 
   // Direct API action methods (memoized to prevent unnecessary re-renders)
   const handleClockIn = useCallback(async () => {
@@ -290,7 +342,7 @@ export const AttendanceProvider = ({ children }) => {
           setCurrentStatus(prev => ({
             ...prev,
             isLoading: false,
-            error: 'Not authenticated'
+            error: null // Don't show error when not authenticated
           }));
           return;
         }
@@ -300,7 +352,7 @@ export const AttendanceProvider = ({ children }) => {
           setCurrentStatus(prev => ({
             ...prev,
             isLoading: false,
-            error: 'No user ID available'
+            error: null // Don't show error when no user ID
           }));
           return;
         }
@@ -308,26 +360,32 @@ export const AttendanceProvider = ({ children }) => {
         console.log('User authenticated, loading initial status for user:', user._id);
         
         // Always start with loading state
-        setCurrentStatus(prev => ({ ...prev, isLoading: true }));
+        setCurrentStatus(prev => ({ ...prev, isLoading: true, error: null }));
         
         // Try to load from cache first for immediate display
         const userSpecificKey = `${STORAGE_KEY}_${user._id}`;
         const cachedStatus = localStorage.getItem(userSpecificKey);
         
         if (cachedStatus) {
-          const parsedStatus = JSON.parse(cachedStatus);
-          console.log('Initial load - using cached status:', parsedStatus);
-          
-          // Only use cached status if it's from today or user is still clocked in
-          const cachedDate = parsedStatus.lastUpdated ? new Date(parsedStatus.lastUpdated) : null;
-          const today = new Date();
-          const isToday = cachedDate && cachedDate.toDateString() === today.toDateString();
-          
-          if (isToday || parsedStatus.isClockedIn) {
-            setCurrentStatus(prev => ({
-              ...parsedStatus,
-              isLoading: true // Keep loading while we check with server
-            }));
+          try {
+            const parsedStatus = JSON.parse(cachedStatus);
+            console.log('Initial load - using cached status:', parsedStatus);
+            
+            // Only use cached status if it's from today or user is still clocked in
+            const cachedDate = parsedStatus.lastUpdated ? new Date(parsedStatus.lastUpdated) : null;
+            const today = new Date();
+            const isToday = cachedDate && cachedDate.toDateString() === today.toDateString();
+            
+            if (isToday || parsedStatus.isClockedIn) {
+              setCurrentStatus(prev => ({
+                ...parsedStatus,
+                isLoading: true, // Keep loading while we check with server
+                error: null
+              }));
+            }
+          } catch (parseErr) {
+            console.error('Error parsing cached status:', parseErr);
+            // Continue with server refresh even if cache parsing fails
           }
         }
         
@@ -335,17 +393,43 @@ export const AttendanceProvider = ({ children }) => {
         await refreshStatus(true);
       } catch (err) {
         console.error('Error in initial status load:', err);
+        // Try to use cache as fallback if available
+        try {
+          const userSpecificKey = `${STORAGE_KEY}_${user._id}`;
+          const cachedStatus = localStorage.getItem(userSpecificKey);
+          
+          if (cachedStatus) {
+            const parsedStatus = JSON.parse(cachedStatus);
+            setCurrentStatus(prev => ({
+              ...parsedStatus,
+              isLoading: false,
+              error: null // Don't show error if we have cached data
+            }));
+            return;
+          }
+        } catch (cacheErr) {
+          console.error('Error loading from cache as fallback:', cacheErr);
+        }
+        
         setCurrentStatus(prev => ({
           ...prev,
           isLoading: false,
-          error: err.message || 'Failed to load initial status'
+          error: 'Unable to load attendance status. Please try again.'
         }));
+        
+        // Schedule a retry
+        scheduleRetry();
       }
     };
     
     // Only run this effect when authentication state or user changes
     loadInitialStatus();
-  }, [isAuthenticated, user, authLoading, refreshStatus]);
+    
+    // Clean up retry timeout on unmount
+    return () => {
+      clearRetryTimeout();
+    };
+  }, [isAuthenticated, user, authLoading, refreshStatus, clearRetryTimeout, scheduleRetry]);
 
   // Set up periodic refresh
   useEffect(() => {
@@ -353,7 +437,7 @@ export const AttendanceProvider = ({ children }) => {
     
     console.log('Setting up periodic refresh interval');
     const interval = setInterval(() => {
-      refreshStatus(true);
+      refreshStatus(false); // Use false to respect the refresh interval check
     }, REFRESH_INTERVAL);
     
     return () => {
@@ -401,14 +485,14 @@ export const AttendanceProvider = ({ children }) => {
 
   const getStatusText = useCallback(() => {
     if (currentStatus.isLoading) return 'Loading...';
-    if (currentStatus.error) return 'Error loading status';
+    if (currentStatus.error) return 'Loading status...';
     if (currentStatus.onBreak) return 'On Break';
     return currentStatus.isClockedIn ? 'Clocked In' : 'Clocked Out';
   }, [currentStatus.isLoading, currentStatus.error, currentStatus.onBreak, currentStatus.isClockedIn]);
 
   const getStatusColor = useCallback(() => {
     if (currentStatus.isLoading) return 'grey.500';
-    if (currentStatus.error) return 'error.main';
+    if (currentStatus.error) return 'info.main';
     if (currentStatus.onBreak) return 'warning.main';
     return currentStatus.isClockedIn ? 'success.main' : 'error.main';
   }, [currentStatus.isLoading, currentStatus.error, currentStatus.onBreak, currentStatus.isClockedIn]);

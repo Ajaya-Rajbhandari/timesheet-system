@@ -21,7 +21,11 @@ import {
   Snackbar,
   Alert,
   useTheme,
-  alpha
+  alpha,
+  FormControl,
+  InputLabel,
+  Select,
+  FormHelperText
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -52,44 +56,79 @@ const Schedule = () => {
   const { user, isAdmin, isManager } = useAuth();
   const hasEditPermission = isAdmin || isManager;
 
-  const [loading, setLoading] = useState(true);
   const [schedules, setSchedules] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [selectedUserId, setSelectedUserId] = useState('');
+  const [selectedUserName, setSelectedUserName] = useState('');
   const [openDialog, setOpenDialog] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(moment());
   const [selectedSchedule, setSelectedSchedule] = useState(null);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
+  const [validationErrors, setValidationErrors] = useState([]);
+  const [notification, setNotification] = useState({ open: false, message: '', severity: 'info' });
   const [formData, setFormData] = useState({
     startDate: moment(),
     endDate: moment(),
-    startTime: moment().set({ hour: 9, minute: 0 }),
-    endTime: moment().set({ hour: 17, minute: 0 }),
+    startTime: moment().startOf('day').add(9, 'hours'),
+    endTime: moment().startOf('day').add(17, 'hours'),
     type: 'regular',
-    notes: '',
-    days: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
+    days: [],
+    notes: ''
   });
-  const [validationErrors, setValidationErrors] = useState([]);
-  const [suggestions, setSuggestions] = useState([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [viewType, setViewType] = useState('my-schedule');
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [users, setUsers] = useState([]);
-  const [selectedDepartment, setSelectedDepartment] = useState('');
 
-  const showNotification = (message, severity = 'success') => {
-    setNotification({
-      open: true,
-      message,
-      severity
-    });
+  const showNotification = (message, severity = 'info') => {
+    setNotification({ open: true, message, severity });
   };
 
-  const handleNotificationClose = () => {
-    setNotification(prev => ({
-      ...prev,
-      open: false
-    }));
-  };
+  const fetchScheduleData = useCallback(async () => {
+    try {
+      setLoading(true);
+      let fetchedSchedules;
+      
+      if (isAdmin || isManager) {
+        fetchedSchedules = await fetchAllSchedules();
+      } else {
+        fetchedSchedules = await getMySchedules();
+      }
+      
+      setSchedules(fetchedSchedules);
+    } catch (err) {
+      console.error('Error fetching schedules:', err);
+      showNotification(err.message || 'Failed to fetch schedules', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [isAdmin, isManager]);
+
+  // Load users for manager/admin selection
+  useEffect(() => {
+    const loadUsers = async () => {
+      if (hasEditPermission) {
+        try {
+          const fetchedUsers = await fetchUsers();
+          console.log('Fetched users for schedule assignment:', fetchedUsers);
+          setUsers(fetchedUsers);
+        } catch (err) {
+          console.error('Error loading users:', err);
+          showNotification('Failed to load users. Please try again.', 'error');
+        }
+      }
+    };
+    loadUsers();
+  }, [hasEditPermission]);
+
+  useEffect(() => {
+    if (selectedUserId && users.length > 0) {
+      const selectedUser = users.find(u => u._id === selectedUserId);
+      if (selectedUser) {
+        setSelectedUserName(`${selectedUser.firstName} ${selectedUser.lastName}`);
+      }
+    }
+  }, [selectedUserId, users]);
+
+  useEffect(() => {
+    fetchScheduleData();
+  }, [fetchScheduleData]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -102,17 +141,32 @@ const Schedule = () => {
       return;
     }
 
+    // Validate user selection for managers/admins
+    if (hasEditPermission && !selectedUserId) {
+      showNotification('Please select an employee for the schedule', 'error');
+      return;
+    }
+
+    // Validate days selection
+    if (!formData.days || formData.days.length === 0) {
+      showNotification('Please select at least one working day', 'error');
+      return;
+    }
+
     try {
       setLoading(true);
       const formattedData = {
+        userId: selectedUserId || user.id,
         startDate: formData.startDate.format('YYYY-MM-DD'),
         endDate: formData.endDate.format('YYYY-MM-DD'),
-        startTime: formData.startTime.format('HH:mm'),
-        endTime: formData.endTime.format('HH:mm'),
+        startTime: formData.startTime.format('HH:mm'), // Ensure 24-hour format with leading zeros
+        endTime: formData.endTime.format('HH:mm'), // Ensure 24-hour format with leading zeros
         type: formData.type,
-        days: formData.days,
-        notes: formData.notes
+        days: formData.days.map(day => day.toLowerCase()), // Ensure lowercase
+        notes: formData.notes || ''
       };
+
+      console.log('Creating schedule with data:', formattedData);
 
       if (selectedSchedule) {
         await updateSchedule(selectedSchedule._id, formattedData);
@@ -133,52 +187,6 @@ const Schedule = () => {
       setLoading(false);
     }
   };
-
-  const fetchScheduleData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const startOfMonth = moment(selectedDate).startOf('month');
-      const endOfMonth = moment(selectedDate).endOf('month');
-      
-      let data;
-      switch (viewType) {
-        case 'all':
-          if (isAdmin || isManager) {
-            data = await fetchAllSchedules(startOfMonth.format('YYYY-MM-DD'), endOfMonth.format('YYYY-MM-DD'));
-          }
-          break;
-        case 'department':
-          if ((isAdmin || isManager) && selectedDepartment) {
-            data = await fetchDepartmentSchedules(selectedDepartment, startOfMonth.format('YYYY-MM-DD'), endOfMonth.format('YYYY-MM-DD'));
-          }
-          break;
-        case 'user':
-          if ((isAdmin || isManager) && selectedUser) {
-            data = await fetchUserSchedules(selectedUser, startOfMonth.format('YYYY-MM-DD'), endOfMonth.format('YYYY-MM-DD'));
-          }
-          break;
-        case 'my-schedule':
-        default:
-          // Use getMySchedules instead of fetchUserSchedules for current user
-          data = await getMySchedules(startOfMonth.format('YYYY-MM-DD'), endOfMonth.format('YYYY-MM-DD'));
-          break;
-      }
-      
-      setSchedules(data || []);
-      setError(null);
-    } catch (err) {
-      console.error('Error fetching schedules:', err);
-      setError(err.response?.data?.message || 'Failed to load schedules');
-      showNotification(err.response?.data?.message || 'Failed to load schedules', 'error');
-      setSchedules([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedDate, viewType, selectedDepartment, selectedUser, isAdmin, isManager]);
-
-  useEffect(() => {
-    fetchScheduleData();
-  }, [fetchScheduleData]);
 
   const handleDelete = async (id) => {
     if (!hasEditPermission) {
@@ -220,14 +228,212 @@ const Schedule = () => {
     setFormData({
       startDate: moment(),
       endDate: moment(),
-      startTime: moment().set({ hour: 9, minute: 0 }),
-      endTime: moment().set({ hour: 17, minute: 0 }),
+      startTime: moment().startOf('day').add(9, 'hours'),
+      endTime: moment().startOf('day').add(17, 'hours'),
       type: 'regular',
       notes: '',
-      days: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
+      days: []
     });
     setSelectedSchedule(null);
   };
+
+  const renderScheduleCard = (schedule) => (
+    <Card 
+      key={schedule._id}
+      sx={{
+        mb: 2,
+        backgroundColor: theme.palette.background.paper,
+        '&:hover': {
+          backgroundColor: alpha(theme.palette.primary.main, 0.04),
+          boxShadow: theme.shadows[4]
+        }
+      }}
+    >
+      <CardContent>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+          <Box>
+            <Typography variant="h6" component="div" gutterBottom>
+              {schedule.type.charAt(0).toUpperCase() + schedule.type.slice(1)} Schedule
+            </Typography>
+            {hasEditPermission && schedule.user && (
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                Assigned to: {schedule.user.firstName} {schedule.user.lastName}
+              </Typography>
+            )}
+            <Typography variant="body2" color="text.secondary">
+              {moment(schedule.startDate).format('MMM DD, YYYY')} - {moment(schedule.endDate).format('MMM DD, YYYY')}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {schedule.startTime} - {schedule.endTime}
+            </Typography>
+            <Box sx={{ mt: 1 }}>
+              {schedule.days.map((day) => (
+                <Chip
+                  key={day}
+                  label={day.charAt(0).toUpperCase() + day.slice(1)}
+                  size="small"
+                  sx={{ mr: 0.5, mb: 0.5 }}
+                />
+              ))}
+            </Box>
+            {schedule.notes && (
+              <Typography variant="body2" sx={{ mt: 1 }}>
+                Notes: {schedule.notes}
+              </Typography>
+            )}
+          </Box>
+          {hasEditPermission && (
+            <Box>
+              <Tooltip title="Edit Schedule">
+                <IconButton 
+                  size="small" 
+                  onClick={() => handleEdit(schedule)}
+                  sx={{ mr: 1 }}
+                >
+                  <EditIcon />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Delete Schedule">
+                <IconButton 
+                  size="small" 
+                  onClick={() => handleDelete(schedule._id)}
+                  color="error"
+                >
+                  <DeleteIcon />
+                </IconButton>
+              </Tooltip>
+            </Box>
+          )}
+        </Box>
+      </CardContent>
+    </Card>
+  );
+
+  const renderDialogContent = () => (
+    <DialogContent>
+      <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
+        <Grid container spacing={2}>
+          {hasEditPermission && (
+            <Grid item xs={12}>
+              <TextField
+                select
+                fullWidth
+                label="Select Employee"
+                value={selectedUserId}
+                onChange={(e) => setSelectedUserId(e.target.value)}
+                required
+                error={!selectedUserId && hasEditPermission}
+                helperText={!selectedUserId && hasEditPermission ? 'Please select an employee' : ''}
+              >
+                {users.map((user) => (
+                  <MenuItem key={user._id} value={user._id}>
+                    {user.firstName} {user.lastName} ({user.employeeId})
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+          )}
+          <Grid item xs={12} sm={6}>
+            <LocalizationProvider dateAdapter={AdapterMoment}>
+              <DatePicker
+                label="Start Date"
+                value={formData.startDate}
+                onChange={(newValue) => setFormData(prev => ({ ...prev, startDate: newValue }))}
+                renderInput={(params) => <TextField {...params} fullWidth required />}
+              />
+            </LocalizationProvider>
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <LocalizationProvider dateAdapter={AdapterMoment}>
+              <DatePicker
+                label="End Date"
+                value={formData.endDate}
+                onChange={(newValue) => setFormData(prev => ({ ...prev, endDate: newValue }))}
+                renderInput={(params) => <TextField {...params} fullWidth required />}
+              />
+            </LocalizationProvider>
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <LocalizationProvider dateAdapter={AdapterMoment}>
+              <TimePicker
+                label="Start Time"
+                value={formData.startTime}
+                onChange={(newValue) => setFormData(prev => ({ ...prev, startTime: newValue }))}
+                renderInput={(params) => <TextField {...params} fullWidth required />}
+                ampm={false} // Use 24-hour format
+              />
+            </LocalizationProvider>
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <LocalizationProvider dateAdapter={AdapterMoment}>
+              <TimePicker
+                label="End Time"
+                value={formData.endTime}
+                onChange={(newValue) => setFormData(prev => ({ ...prev, endTime: newValue }))}
+                renderInput={(params) => <TextField {...params} fullWidth required />}
+                ampm={false} // Use 24-hour format
+              />
+            </LocalizationProvider>
+          </Grid>
+          <Grid item xs={12}>
+            <TextField
+              select
+              fullWidth
+              label="Schedule Type"
+              value={formData.type}
+              onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value }))}
+              required
+            >
+              <MenuItem value="regular">Regular</MenuItem>
+              <MenuItem value="overtime">Overtime</MenuItem>
+              <MenuItem value="flexible">Flexible</MenuItem>
+              <MenuItem value="remote">Remote</MenuItem>
+            </TextField>
+          </Grid>
+          <Grid item xs={12}>
+            <FormControl fullWidth required error={!formData.days || formData.days.length === 0}>
+              <InputLabel>Working Days</InputLabel>
+              <Select
+                multiple
+                value={formData.days}
+                onChange={(e) => setFormData(prev => ({ ...prev, days: e.target.value }))}
+                renderValue={(selected) => (
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                    {selected.map((day) => (
+                      <Chip
+                        key={day}
+                        label={day.charAt(0).toUpperCase() + day.slice(1)}
+                        size="small"
+                      />
+                    ))}
+                  </Box>
+                )}
+              >
+                {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map((day) => (
+                  <MenuItem key={day} value={day}>
+                    {day.charAt(0).toUpperCase() + day.slice(1)}
+                  </MenuItem>
+                ))}
+              </Select>
+              {(!formData.days || formData.days.length === 0) && (
+                <FormHelperText>Please select at least one working day</FormHelperText>
+              )}
+            </FormControl>
+          </Grid>
+          <Grid item xs={12}>
+            <TextField
+              fullWidth
+              label="Notes"
+              value={formData.notes}
+              onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+              multiline
+              rows={3}
+            />
+          </Grid>
+        </Grid>
+      </Box>
+    </DialogContent>
+  );
 
   return (
     <Container maxWidth="xl">
@@ -241,7 +447,7 @@ const Schedule = () => {
         >
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
             <Typography variant="h5" component="h1">
-              Schedule Management
+              Schedules
             </Typography>
             {hasEditPermission && (
               <Button
@@ -257,6 +463,13 @@ const Schedule = () => {
             )}
           </Box>
 
+          {/* Error Display */}
+          {error && (
+            <Alert severity="error" sx={{ mb: 3 }}>
+              {error}
+            </Alert>
+          )}
+
           {/* Schedule Grid */}
           <Grid container spacing={3}>
             {loading ? (
@@ -267,59 +480,26 @@ const Schedule = () => {
               </Grid>
             ) : schedules.length > 0 ? (
               schedules.map((schedule) => (
-                <Grid item xs={12} sm={6} md={4} key={schedule._id}>
-                  <Card>
-                    <CardContent>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                        <Typography variant="h6" gutterBottom>
-                          {schedule.type.charAt(0).toUpperCase() + schedule.type.slice(1)} Schedule
-                        </Typography>
-                        {hasEditPermission && (
-                          <Box>
-                            <IconButton size="small" onClick={() => handleEdit(schedule)}>
-                              <EditIcon />
-                            </IconButton>
-                            <IconButton size="small" onClick={() => handleDelete(schedule._id)}>
-                              <DeleteIcon />
-                            </IconButton>
-                          </Box>
-                        )}
-                      </Box>
-                      <Stack spacing={1}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <CalendarIcon fontSize="small" />
-                          <Typography variant="body2">
-                            {moment(schedule.startDate).format('MMM D')} - {moment(schedule.endDate).format('MMM D, YYYY')}
-                          </Typography>
-                        </Box>
-                        <Typography variant="body2">
-                          Time: {schedule.startTime} - {schedule.endTime}
-                        </Typography>
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                          {schedule.days.map((day) => (
-                            <Chip
-                              key={day}
-                              label={day.charAt(0).toUpperCase() + day.slice(1)}
-                              size="small"
-                              color="primary"
-                              variant="outlined"
-                            />
-                          ))}
-                        </Box>
-                        {schedule.notes && (
-                          <Typography variant="body2" color="text.secondary">
-                            Notes: {schedule.notes}
-                          </Typography>
-                        )}
-                      </Stack>
-                    </CardContent>
-                  </Card>
-                </Grid>
+                renderScheduleCard(schedule)
               ))
             ) : (
               <Grid item xs={12}>
-                <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
-                  <Typography>No schedules found</Typography>
+                <Box sx={{ 
+                  display: 'flex', 
+                  justifyContent: 'center', 
+                  alignItems: 'center',
+                  flexDirection: 'column',
+                  p: 4,
+                  bgcolor: alpha(theme.palette.primary.main, 0.03),
+                  borderRadius: 1
+                }}>
+                  <CalendarIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
+                  <Typography variant="h6" color="text.secondary" gutterBottom>
+                    No Schedules Found
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    No schedules found for the selected criteria.
+                  </Typography>
                 </Box>
               </Grid>
             )}
@@ -332,104 +512,7 @@ const Schedule = () => {
         <DialogTitle>
           {selectedSchedule ? 'Edit Schedule' : 'Add New Schedule'}
         </DialogTitle>
-        <DialogContent>
-          <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
-                <LocalizationProvider dateAdapter={AdapterMoment}>
-                  <DatePicker
-                    label="Start Date"
-                    value={formData.startDate}
-                    onChange={(newValue) => setFormData(prev => ({ ...prev, startDate: newValue }))}
-                    renderInput={(params) => <TextField {...params} fullWidth />}
-                  />
-                </LocalizationProvider>
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <LocalizationProvider dateAdapter={AdapterMoment}>
-                  <DatePicker
-                    label="End Date"
-                    value={formData.endDate}
-                    onChange={(newValue) => setFormData(prev => ({ ...prev, endDate: newValue }))}
-                    renderInput={(params) => <TextField {...params} fullWidth />}
-                  />
-                </LocalizationProvider>
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <LocalizationProvider dateAdapter={AdapterMoment}>
-                  <TimePicker
-                    label="Start Time"
-                    value={formData.startTime}
-                    onChange={(newValue) => setFormData(prev => ({ ...prev, startTime: newValue }))}
-                    renderInput={(params) => <TextField {...params} fullWidth />}
-                  />
-                </LocalizationProvider>
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <LocalizationProvider dateAdapter={AdapterMoment}>
-                  <TimePicker
-                    label="End Time"
-                    value={formData.endTime}
-                    onChange={(newValue) => setFormData(prev => ({ ...prev, endTime: newValue }))}
-                    renderInput={(params) => <TextField {...params} fullWidth />}
-                  />
-                </LocalizationProvider>
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  select
-                  fullWidth
-                  label="Schedule Type"
-                  value={formData.type}
-                  onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value }))}
-                >
-                  <MenuItem value="regular">Regular</MenuItem>
-                  <MenuItem value="overtime">Overtime</MenuItem>
-                  <MenuItem value="flexible">Flexible</MenuItem>
-                </TextField>
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  select
-                  fullWidth
-                  label="Working Days"
-                  value={formData.days}
-                  onChange={(e) => setFormData(prev => ({ ...prev, days: e.target.value }))}
-                  SelectProps={{
-                    multiple: true,
-                    renderValue: (selected) => (
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                        {selected.map((value) => (
-                          <Chip
-                            key={value}
-                            label={value.charAt(0).toUpperCase() + value.slice(1)}
-                            size="small"
-                          />
-                        ))}
-                      </Box>
-                    ),
-                  }}
-                >
-                  {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map((day) => (
-                    <MenuItem key={day} value={day}>
-                      {day.charAt(0).toUpperCase() + day.slice(1)}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Notes"
-                  multiline
-                  rows={3}
-                  value={formData.notes}
-                  onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-                />
-              </Grid>
-            </Grid>
-          </Box>
-        </DialogContent>
+        {renderDialogContent()}
         <DialogActions>
           <Button onClick={() => setOpenDialog(false)}>Cancel</Button>
           <Button onClick={handleSubmit} variant="contained" disabled={loading}>
@@ -442,11 +525,11 @@ const Schedule = () => {
       <Snackbar
         open={notification.open}
         autoHideDuration={6000}
-        onClose={handleNotificationClose}
+        onClose={() => setNotification(prev => ({ ...prev, open: false }))}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       >
         <Alert
-          onClose={handleNotificationClose}
+          onClose={() => setNotification(prev => ({ ...prev, open: false }))}
           severity={notification.severity}
           variant="filled"
           sx={{ width: '100%' }}
