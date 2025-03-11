@@ -19,6 +19,12 @@ router.post('/', auth, async (req, res) => {
       attachments
     } = req.body;
 
+    // Get user's department
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
     // Create new time-off request
     const timeOff = new TimeOff({
       user: req.user.id,
@@ -26,7 +32,8 @@ router.post('/', auth, async (req, res) => {
       startDate: new Date(startDate),
       endDate: new Date(endDate),
       reason,
-      attachments: attachments || []
+      attachments: attachments || [],
+      department: user.department // Add the user's department
     });
 
     await timeOff.save();

@@ -88,6 +88,13 @@ const Schedule = () => {
       if (isAdmin || isManager) {
         fetchedSchedules = await fetchAllSchedules();
       } else {
+        // Check if user exists and has an ID before making the API call
+        if (!user || !user.id) {
+          console.error('User information is not available');
+          showNotification('User information is not available. Please log in again.', 'error');
+          setLoading(false);
+          return;
+        }
         fetchedSchedules = await getMySchedules();
       }
       
@@ -98,7 +105,7 @@ const Schedule = () => {
     } finally {
       setLoading(false);
     }
-  }, [isAdmin, isManager]);
+  }, [isAdmin, isManager, user]);
 
   // Load users for manager/admin selection
   useEffect(() => {
@@ -127,8 +134,11 @@ const Schedule = () => {
   }, [selectedUserId, users]);
 
   useEffect(() => {
-    fetchScheduleData();
-  }, [fetchScheduleData]);
+    // Only fetch schedule data if user is authenticated
+    if (user) {
+      fetchScheduleData();
+    }
+  }, [fetchScheduleData, user]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
