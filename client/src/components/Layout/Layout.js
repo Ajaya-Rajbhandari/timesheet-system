@@ -167,7 +167,9 @@ const Layout = () => {
               bgcolor: 'primary.main',
               border: '2px solid',
               borderColor: 'background.paper'
-            }}>
+            }}
+            src={user?.profileImage ? `${process.env.REACT_APP_API_URL || ''}/api/upload/profile/${user.profileImage}` : undefined}
+            >
               {user?.firstName?.charAt(0) || 'U'}
             </Avatar>
             <Box>

@@ -15,6 +15,8 @@ A modern web-based timesheet and attendance management system built with the MER
 - Break time tracking
 - Overtime calculation
 - Mobile-responsive design
+- User profile management with profile picture upload
+- Password reset and account recovery
 
 ## Tech Stack
 

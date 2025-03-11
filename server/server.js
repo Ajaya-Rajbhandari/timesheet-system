@@ -20,6 +20,7 @@ const timeOffRoutes = require('./routes/timeoff');
 const reportRoutes = require('./routes/reports');
 const shiftSwapRoutes = require('./routes/shiftSwap.js');
 const departmentRoutes = require('./routes/departments');
+const uploadRoutes = require('./routes/upload');
 
 // Initialize express app
 const app = express();
@@ -50,6 +51,7 @@ app.use('/api/timeoff', timeOffRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/shift-swaps', shiftSwapRoutes);
 app.use('/api/departments', departmentRoutes);
+app.use('/api/upload', uploadRoutes);
 
 // Serve static assets in production
 if (process.env.NODE_ENV === 'production') {
