@@ -15,6 +15,7 @@ yarn-error.log
 .env*.local
 
 # Security & Keys
+.secrets.baseline
 *.pem
 *.key
 *.cert
@@ -31,6 +32,7 @@ jwt.secret
 # IDE & Editor Files
 .idea/
 .vscode/
+.qodo/
 *.swp
 *.swo
 *.swn

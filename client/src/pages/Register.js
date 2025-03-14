@@ -1,55 +1,55 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Container, 
-  Box, 
-  Typography, 
-  TextField, 
-  Button, 
-  Paper, 
-  Link, 
+import React, { useState, useEffect } from "react";
+import {
+  Container,
+  Box,
+  Typography,
+  TextField,
+  Button,
+  Paper,
+  Link,
   Alert,
   CircularProgress,
   Grid,
   MenuItem,
   FormControl,
   InputLabel,
-  Select
-} from '@mui/material';
-import { Link as RouterLink, useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import axios from 'axios';
+  Select,
+} from "@mui/material";
+import { Link as RouterLink, useNavigate } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
+import axios from "axios";
 
 const Register = () => {
   const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
-    role: 'employee',
-    department: '',
-    position: '',
-    employeeId: '',
-    phoneNumber: ''
+    firstName: "",
+    lastName: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+    role: "employee",
+    department: "",
+    position: "",
+    employeeId: "",
+    phoneNumber: "",
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [departments, setDepartments] = useState([]);
-  
+
   const { register } = useAuth();
   const navigate = useNavigate();
-  
-  const { 
-    firstName, 
-    lastName, 
-    email, 
-    password, 
+
+  const {
+    firstName,
+    lastName,
+    email,
+    password,
     confirmPassword,
     role,
     department,
     position,
     employeeId,
-    phoneNumber
+    phoneNumber,
   } = formData;
 
   // Fetch departments on component mount
@@ -57,110 +57,140 @@ const Register = () => {
     const fetchDepartments = async () => {
       try {
         setLoading(true);
-        const response = await axios.get('/api/departments');
+        const response = await axios.get("/api/departments");
         setDepartments(response.data);
-        
+
         if (response.data.length === 0) {
-          setError('No departments available. Please contact an administrator to set up departments.');
+          setError(
+            "No departments available. Please contact an administrator to set up departments.",
+          );
         }
-        
+
         setLoading(false);
       } catch (err) {
-        console.error('Error fetching departments:', err);
-        setError('Failed to load departments. Please try again later.');
+        console.error("Error fetching departments:", err);
+        setError("Failed to load departments. Please try again later.");
         setLoading(false);
       }
     };
     fetchDepartments();
   }, []);
-  
+
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
     setError(null); // Clear error when user types
   };
-  
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     // Validation
-    if (!firstName || !lastName || !email || !password || !department || !position || !employeeId) {
-      setError('Please fill in all required fields');
+    if (
+      !firstName ||
+      !lastName ||
+      !email ||
+      !password ||
+      !department ||
+      !position ||
+      !employeeId
+    ) {
+      setError("Please fill in all required fields");
       return;
     }
-    
+
     if (password !== confirmPassword) {
-      setError('Passwords do not match');
+      setError("Passwords do not match");
       return;
     }
-    
+
     if (password.length < 6) {
-      setError('Password must be at least 6 characters');
+      setError("Password must be at least 6 characters");
       return;
     }
 
     if (employeeId.length < 4) {
-      setError('Employee ID must be at least 4 characters');
+      setError("Employee ID must be at least 4 characters");
       return;
     }
 
-    if (phoneNumber && !/^[+]?[(]?[0-9]{3}[)]?[-\s.]?[0-9]{3}[-\s.]?[0-9]{4,6}$/.test(phoneNumber)) {
-      setError('Please enter a valid phone number');
+    if (
+      phoneNumber &&
+      !/^[+]?[(]?[0-9]{3}[)]?[-\s.]?[0-9]{3}[-\s.]?[0-9]{4,6}$/.test(
+        phoneNumber,
+      )
+    ) {
+      setError("Please enter a valid phone number");
       return;
     }
-    
+
     try {
       setLoading(true);
       setError(null);
-      
-      console.log('Submitting registration form with data:', { 
-        firstName, lastName, email, role, department, position, employeeId 
+
+      console.log("Submitting registration form with data:", {
+        firstName,
+        lastName,
+        email,
+        role,
+        department,
+        position,
+        employeeId,
       });
-      
+
       // Use the register function from AuthContext
       const user = await register(formData);
-      console.log('Registration successful, user:', user);
-      navigate('/');
+      console.log("Registration successful, user:", user);
+      navigate("/");
     } catch (err) {
-      console.error('Registration error:', err);
-      
+      console.error("Registration error:", err);
+
       // Check if the error is because the user already exists
-      if (err.response?.data?.message === 'User already exists') {
-        setError('An account with this email already exists. Please use a different email or try logging in.');
-      } else if (err.response?.data?.message === 'Employee ID is already in use') {
-        setError('This Employee ID is already in use. Please use a different ID.');
+      if (err.response?.data?.message === "User already exists") {
+        setError(
+          "An account with this email already exists. Please use a different email or try logging in.",
+        );
+      } else if (
+        err.response?.data?.message === "Employee ID is already in use"
+      ) {
+        setError(
+          "This Employee ID is already in use. Please use a different ID.",
+        );
       } else {
-        setError(err.response?.data?.message || 'Registration failed. Please try again.');
+        setError(
+          err.response?.data?.message ||
+            "Registration failed. Please try again.",
+        );
       }
     } finally {
       setLoading(false);
     }
   };
-  
+
   return (
     <Container component="main" maxWidth="sm">
       <Box
         sx={{
           marginTop: 8,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
         }}
       >
-        <Paper elevation={3} sx={{ p: 4, width: '100%' }}>
+        <Paper elevation={3} sx={{ p: 4, width: "100%" }}>
           <Typography component="h1" variant="h5" align="center" gutterBottom>
             Timesheet System
           </Typography>
-          
+
           <Typography component="h2" variant="h5" align="center" sx={{ mb: 3 }}>
             Create Account
           </Typography>
-          
+
           {error && (
             <Alert severity="error" sx={{ mb: 2 }}>
               {error}
             </Alert>
           )}
-          
+
           <Box component="form" onSubmit={handleSubmit} noValidate>
             <Grid container spacing={2}>
               <Grid item xs={12} sm={6}>
@@ -176,7 +206,7 @@ const Register = () => {
                   disabled={loading}
                 />
               </Grid>
-              
+
               <Grid item xs={12} sm={6}>
                 <TextField
                   required
@@ -190,7 +220,7 @@ const Register = () => {
                   disabled={loading}
                 />
               </Grid>
-              
+
               <Grid item xs={12}>
                 <TextField
                   required
@@ -291,7 +321,7 @@ const Register = () => {
                   helperText="Format: +1234567890 or (123) 456-7890"
                 />
               </Grid>
-              
+
               <Grid item xs={12}>
                 <TextField
                   required
@@ -307,7 +337,7 @@ const Register = () => {
                   helperText="Minimum 6 characters"
                 />
               </Grid>
-              
+
               <Grid item xs={12}>
                 <TextField
                   required
@@ -322,7 +352,7 @@ const Register = () => {
                 />
               </Grid>
             </Grid>
-            
+
             <Button
               type="submit"
               fullWidth
@@ -330,10 +360,10 @@ const Register = () => {
               sx={{ mt: 3, mb: 2 }}
               disabled={loading}
             >
-              {loading ? <CircularProgress size={24} /> : 'Sign Up'}
+              {loading ? <CircularProgress size={24} /> : "Sign Up"}
             </Button>
-            
-            <Box sx={{ textAlign: 'center' }}>
+
+            <Box sx={{ textAlign: "center" }}>
               <Link component={RouterLink} to="/login" variant="body2">
                 {"Already have an account? Sign In"}
               </Link>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Container,
   Typography,
@@ -27,26 +27,26 @@ import {
   TableHead,
   TableRow,
   Tooltip,
-  Alert
-} from '@mui/material';
+  Alert,
+} from "@mui/material";
 import {
   Event as EventIcon,
   Add as AddIcon,
   Close as CloseIcon,
   CalendarMonth as CalendarIcon,
   Description as DescriptionIcon,
-  AccessTime as TimeIcon
-} from '@mui/icons-material';
-import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterMoment } from '@mui/x-date-pickers/AdapterMoment';
-import moment from 'moment';
-import { useAuth } from '../contexts/AuthContext';
-import { 
-  createTimeOffRequest, 
-  getMyTimeOffRequests, 
-  cancelTimeOffRequest 
-} from '../services/timeOffService';
+  AccessTime as TimeIcon,
+} from "@mui/icons-material";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { AdapterMoment } from "@mui/x-date-pickers/AdapterMoment";
+import moment from "moment";
+import { useAuth } from "../contexts/AuthContext";
+import {
+  createTimeOffRequest,
+  getMyTimeOffRequests,
+  cancelTimeOffRequest,
+} from "../services/timeOffService";
 
 const TimeOff = () => {
   const theme = useTheme();
@@ -56,18 +56,18 @@ const TimeOff = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedYear, setSelectedYear] = useState(moment().year());
   const [formData, setFormData] = useState({
-    type: '',
+    type: "",
     startDate: null,
     endDate: null,
-    reason: ''
+    reason: "",
   });
   const [error, setError] = useState(null);
 
   const timeOffTypes = [
-    { value: 'vacation', label: 'Vacation' },
-    { value: 'sick', label: 'Sick Leave' },
-    { value: 'personal', label: 'Personal Leave' },
-    { value: 'other', label: 'Other' }
+    { value: "vacation", label: "Vacation" },
+    { value: "sick", label: "Sick Leave" },
+    { value: "personal", label: "Personal Leave" },
+    { value: "other", label: "Other" },
   ];
 
   const fetchRequests = useCallback(async () => {
@@ -77,8 +77,8 @@ const TimeOff = () => {
       setRequests(data);
       setError(null);
     } catch (err) {
-      setError('Failed to load time off requests');
-      console.error('Error fetching requests:', err);
+      setError("Failed to load time off requests");
+      console.error("Error fetching requests:", err);
     } finally {
       setLoading(false);
     }
@@ -92,19 +92,42 @@ const TimeOff = () => {
     e.preventDefault();
     try {
       setLoading(true);
-      await createTimeOffRequest(formData);
+
+      // Validate required fields
+      if (
+        !formData.type ||
+        !formData.startDate ||
+        !formData.endDate ||
+        !formData.reason
+      ) {
+        setError("Please fill in all required fields");
+        setLoading(false);
+        return;
+      }
+
+      // Create a formatted version of the data with properly formatted dates
+      const formattedData = {
+        type: formData.type,
+        startDate: formData.startDate.format("YYYY-MM-DD"),
+        endDate: formData.endDate.format("YYYY-MM-DD"),
+        reason: formData.reason,
+      };
+
+      console.log("Submitting time-off request with data:", formattedData);
+
+      await createTimeOffRequest(formattedData);
       await fetchRequests();
       setOpenDialog(false);
       setFormData({
-        type: '',
+        type: "",
         startDate: null,
         endDate: null,
-        reason: ''
+        reason: "",
       });
       setError(null);
     } catch (err) {
-      setError('Failed to submit time off request');
-      console.error('Error submitting request:', err);
+      setError("Failed to submit time off request");
+      console.error("Error submitting request:", err);
     } finally {
       setLoading(false);
     }
@@ -117,8 +140,8 @@ const TimeOff = () => {
       await fetchRequests();
       setError(null);
     } catch (err) {
-      setError('Failed to cancel time off request');
-      console.error('Error canceling request:', err);
+      setError("Failed to cancel time off request");
+      console.error("Error canceling request:", err);
     } finally {
       setLoading(false);
     }
@@ -126,32 +149,37 @@ const TimeOff = () => {
 
   if (loading && requests.length === 0) {
     return (
-      <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        height: '100vh',
-        background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)'
-      }}>
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          height: "100vh",
+          background: "linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)",
+        }}
+      >
         <CircularProgress />
       </Box>
     );
   }
 
   return (
-    <Box sx={{ 
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
-      py: 4
-    }}>
+    <Box
+      sx={{
+        minHeight: "100vh",
+        background: "linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)",
+        py: 4,
+      }}
+    >
       <Container maxWidth="lg">
         {error && (
-          <Alert 
-            severity="error" 
-            sx={{ 
+          <Alert
+            severity="error"
+            sx={{
               mb: 3,
               borderRadius: 2,
-              boxShadow: theme => `0 4px 20px ${alpha(theme.palette.error.main, 0.1)}`
+              boxShadow: (theme) =>
+                `0 4px 20px ${alpha(theme.palette.error.main, 0.1)}`,
             }}
             onClose={() => setError(null)}
           >
@@ -160,33 +188,44 @@ const TimeOff = () => {
         )}
 
         {/* Header */}
-        <Card sx={{ 
-          mb: 4,
-          background: 'transparent',
-          backdropFilter: 'blur(10px)',
-          bgcolor: alpha(theme.palette.background.paper, 0.8),
-          borderRadius: 4,
-          boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.15)',
-          border: '1px solid rgba(255, 255, 255, 0.18)'
-        }}>
-          <CardContent sx={{ 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            alignItems: 'center',
-            py: 3
-          }}>
+        <Card
+          sx={{
+            mb: 4,
+            background: "transparent",
+            backdropFilter: "blur(10px)",
+            bgcolor: alpha(theme.palette.background.paper, 0.8),
+            borderRadius: 4,
+            boxShadow: "0 8px 32px 0 rgba(31, 38, 135, 0.15)",
+            border: "1px solid rgba(255, 255, 255, 0.18)",
+          }}
+        >
+          <CardContent
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              py: 3,
+            }}
+          >
             <Box>
-              <Typography variant="h4" sx={{ 
-                fontWeight: 600,
-                background: 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)',
-                backgroundClip: 'text',
-                textFillColor: 'transparent',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent'
-              }}>
+              <Typography
+                variant="h4"
+                sx={{
+                  fontWeight: 600,
+                  background:
+                    "linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)",
+                  backgroundClip: "text",
+                  textFillColor: "transparent",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                }}
+              >
                 Time Off Requests
               </Typography>
-              <Typography variant="subtitle1" sx={{ color: 'text.secondary', mt: 1 }}>
+              <Typography
+                variant="subtitle1"
+                sx={{ color: "text.secondary", mt: 1 }}
+              >
                 Manage your time off requests and view their status
               </Typography>
             </Box>
@@ -194,16 +233,16 @@ const TimeOff = () => {
               variant="contained"
               startIcon={<AddIcon />}
               onClick={() => setOpenDialog(true)}
-              sx={{ 
+              sx={{
                 py: 1.5,
                 px: 3,
                 borderRadius: 3,
-                background: 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)',
-                boxShadow: '0 3px 5px 2px rgba(33, 203, 243, .3)',
-                transition: 'transform 0.2s',
-                '&:hover': {
-                  transform: 'translateY(-2px)'
-                }
+                background: "linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)",
+                boxShadow: "0 3px 5px 2px rgba(33, 203, 243, .3)",
+                transition: "transform 0.2s",
+                "&:hover": {
+                  transform: "translateY(-2px)",
+                },
               }}
             >
               New Request
@@ -214,29 +253,34 @@ const TimeOff = () => {
         {/* Time Off Summary */}
         <Grid container spacing={4} sx={{ mb: 4 }}>
           <Grid item xs={12} md={4}>
-            <Card sx={{ 
-              height: '100%',
-              background: 'transparent',
-              backdropFilter: 'blur(10px)',
-              bgcolor: alpha(theme.palette.background.paper, 0.8),
-              borderRadius: 4,
-              boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.15)',
-              border: '1px solid rgba(255, 255, 255, 0.18)'
-            }}>
+            <Card
+              sx={{
+                height: "100%",
+                background: "transparent",
+                backdropFilter: "blur(10px)",
+                bgcolor: alpha(theme.palette.background.paper, 0.8),
+                borderRadius: 4,
+                boxShadow: "0 8px 32px 0 rgba(31, 38, 135, 0.15)",
+                border: "1px solid rgba(255, 255, 255, 0.18)",
+              }}
+            >
               <CardContent>
                 <Stack spacing={2}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
                     <TimeIcon color="primary" sx={{ fontSize: 28 }} />
                     <Typography variant="h6" sx={{ fontWeight: 600 }}>
                       Pending Requests
                     </Typography>
                   </Box>
-                  <Typography variant="h3" sx={{ 
-                    textAlign: 'center',
-                    color: theme.palette.warning.main,
-                    fontWeight: 700
-                  }}>
-                    {requests.filter(r => r.status === 'pending').length}
+                  <Typography
+                    variant="h3"
+                    sx={{
+                      textAlign: "center",
+                      color: theme.palette.warning.main,
+                      fontWeight: 700,
+                    }}
+                  >
+                    {requests.filter((r) => r.status === "pending").length}
                   </Typography>
                 </Stack>
               </CardContent>
@@ -244,29 +288,34 @@ const TimeOff = () => {
           </Grid>
 
           <Grid item xs={12} md={4}>
-            <Card sx={{ 
-              height: '100%',
-              background: 'transparent',
-              backdropFilter: 'blur(10px)',
-              bgcolor: alpha(theme.palette.background.paper, 0.8),
-              borderRadius: 4,
-              boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.15)',
-              border: '1px solid rgba(255, 255, 255, 0.18)'
-            }}>
+            <Card
+              sx={{
+                height: "100%",
+                background: "transparent",
+                backdropFilter: "blur(10px)",
+                bgcolor: alpha(theme.palette.background.paper, 0.8),
+                borderRadius: 4,
+                boxShadow: "0 8px 32px 0 rgba(31, 38, 135, 0.15)",
+                border: "1px solid rgba(255, 255, 255, 0.18)",
+              }}
+            >
               <CardContent>
                 <Stack spacing={2}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
                     <CalendarIcon color="primary" sx={{ fontSize: 28 }} />
                     <Typography variant="h6" sx={{ fontWeight: 600 }}>
                       Approved Requests
                     </Typography>
                   </Box>
-                  <Typography variant="h3" sx={{ 
-                    textAlign: 'center',
-                    color: theme.palette.success.main,
-                    fontWeight: 700
-                  }}>
-                    {requests.filter(r => r.status === 'approved').length}
+                  <Typography
+                    variant="h3"
+                    sx={{
+                      textAlign: "center",
+                      color: theme.palette.success.main,
+                      fontWeight: 700,
+                    }}
+                  >
+                    {requests.filter((r) => r.status === "approved").length}
                   </Typography>
                 </Stack>
               </CardContent>
@@ -274,28 +323,33 @@ const TimeOff = () => {
           </Grid>
 
           <Grid item xs={12} md={4}>
-            <Card sx={{ 
-              height: '100%',
-              background: 'transparent',
-              backdropFilter: 'blur(10px)',
-              bgcolor: alpha(theme.palette.background.paper, 0.8),
-              borderRadius: 4,
-              boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.15)',
-              border: '1px solid rgba(255, 255, 255, 0.18)'
-            }}>
+            <Card
+              sx={{
+                height: "100%",
+                background: "transparent",
+                backdropFilter: "blur(10px)",
+                bgcolor: alpha(theme.palette.background.paper, 0.8),
+                borderRadius: 4,
+                boxShadow: "0 8px 32px 0 rgba(31, 38, 135, 0.15)",
+                border: "1px solid rgba(255, 255, 255, 0.18)",
+              }}
+            >
               <CardContent>
                 <Stack spacing={2}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
                     <DescriptionIcon color="primary" sx={{ fontSize: 28 }} />
                     <Typography variant="h6" sx={{ fontWeight: 600 }}>
                       Total Requests
                     </Typography>
                   </Box>
-                  <Typography variant="h3" sx={{ 
-                    textAlign: 'center',
-                    color: theme.palette.primary.main,
-                    fontWeight: 700
-                  }}>
+                  <Typography
+                    variant="h3"
+                    sx={{
+                      textAlign: "center",
+                      color: theme.palette.primary.main,
+                      fontWeight: 700,
+                    }}
+                  >
                     {requests.length}
                   </Typography>
                 </Stack>
@@ -305,31 +359,33 @@ const TimeOff = () => {
         </Grid>
 
         {/* Requests Table */}
-        <Card sx={{ 
-          background: 'transparent',
-          backdropFilter: 'blur(10px)',
-          bgcolor: alpha(theme.palette.background.paper, 0.8),
-          borderRadius: 4,
-          boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.15)',
-          border: '1px solid rgba(255, 255, 255, 0.18)'
-        }}>
+        <Card
+          sx={{
+            background: "transparent",
+            backdropFilter: "blur(10px)",
+            bgcolor: alpha(theme.palette.background.paper, 0.8),
+            borderRadius: 4,
+            boxShadow: "0 8px 32px 0 rgba(31, 38, 135, 0.15)",
+            border: "1px solid rgba(255, 255, 255, 0.18)",
+          }}
+        >
           <CardContent>
             <Box sx={{ mb: 3 }}>
               <LocalizationProvider dateAdapter={AdapterMoment}>
                 <DatePicker
-                  views={['year']}
+                  views={["year"]}
                   label="Select Year"
                   value={moment().year(selectedYear)}
                   onChange={(newValue) => setSelectedYear(newValue.year())}
                   renderInput={(params) => (
-                    <TextField 
-                      {...params} 
-                      sx={{ 
+                    <TextField
+                      {...params}
+                      sx={{
                         width: 200,
-                        '& .MuiOutlinedInput-root': {
+                        "& .MuiOutlinedInput-root": {
                           borderRadius: 3,
-                          bgcolor: 'background.paper'
-                        }
+                          bgcolor: "background.paper",
+                        },
                       }}
                     />
                   )}
@@ -337,11 +393,13 @@ const TimeOff = () => {
               </LocalizationProvider>
             </Box>
 
-            <TableContainer sx={{ 
-              borderRadius: 3,
-              bgcolor: 'background.paper',
-              boxShadow: '0 4px 20px 0 rgba(0,0,0,0.05)'
-            }}>
+            <TableContainer
+              sx={{
+                borderRadius: 3,
+                bgcolor: "background.paper",
+                boxShadow: "0 4px 20px 0 rgba(0,0,0,0.05)",
+              }}
+            >
               <Table>
                 <TableHead>
                   <TableRow>
@@ -358,23 +416,34 @@ const TimeOff = () => {
                   {requests.map((request) => (
                     <TableRow key={request._id} hover>
                       <TableCell>
-                        {request.type.charAt(0).toUpperCase() + request.type.slice(1)}
+                        {request.type.charAt(0).toUpperCase() +
+                          request.type.slice(1)}
                       </TableCell>
                       <TableCell>
-                        {moment(request.startDate).format('MMM D, YYYY')}
+                        {moment(request.startDate).format("MMM D, YYYY")}
                       </TableCell>
                       <TableCell>
-                        {moment(request.endDate).format('MMM D, YYYY')}
+                        {moment(request.endDate).format("MMM D, YYYY")}
                       </TableCell>
                       <TableCell>
-                        {moment(request.endDate).diff(moment(request.startDate), 'days') + 1} days
+                        {moment(request.endDate).diff(
+                          moment(request.startDate),
+                          "days",
+                        ) + 1}{" "}
+                        days
                       </TableCell>
                       <TableCell>
                         <Chip
-                          label={request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                          label={
+                            request.status.charAt(0).toUpperCase() +
+                            request.status.slice(1)
+                          }
                           color={
-                            request.status === 'approved' ? 'success' :
-                            request.status === 'pending' ? 'warning' : 'error'
+                            request.status === "approved"
+                              ? "success"
+                              : request.status === "pending"
+                                ? "warning"
+                                : "error"
                           }
                           size="small"
                           sx={{ borderRadius: 2 }}
@@ -388,7 +457,7 @@ const TimeOff = () => {
                         </Tooltip>
                       </TableCell>
                       <TableCell>
-                        {request.status === 'pending' && (
+                        {request.status === "pending" && (
                           <Button
                             variant="outlined"
                             color="error"
@@ -409,32 +478,38 @@ const TimeOff = () => {
         </Card>
 
         {/* New Request Dialog */}
-        <Dialog 
-          open={openDialog} 
+        <Dialog
+          open={openDialog}
           onClose={() => setOpenDialog(false)}
           maxWidth="sm"
           fullWidth
+          keepMounted
+          disableEnforceFocus
           PaperProps={{
             sx: {
               borderRadius: 4,
               bgcolor: alpha(theme.palette.background.paper, 0.9),
-              backdropFilter: 'blur(10px)'
-            }
+              backdropFilter: "blur(10px)",
+            },
           }}
         >
-          <DialogTitle sx={{ 
-            pb: 1,
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center'
-          }}>
+          <Box
+            sx={{
+              pb: 1,
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              px: 3,
+              pt: 2,
+            }}
+          >
             <Typography variant="h6" sx={{ fontWeight: 600 }}>
               New Time Off Request
             </Typography>
             <IconButton onClick={() => setOpenDialog(false)} size="small">
               <CloseIcon />
             </IconButton>
-          </DialogTitle>
+          </Box>
           <form onSubmit={handleSubmit}>
             <DialogContent sx={{ pb: 2 }}>
               <Stack spacing={3}>
@@ -442,10 +517,12 @@ const TimeOff = () => {
                   select
                   label="Type of Leave"
                   value={formData.type}
-                  onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, type: e.target.value })
+                  }
                   required
                   fullWidth
-                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3 } }}
+                  sx={{ "& .MuiOutlinedInput-root": { borderRadius: 3 } }}
                 >
                   {timeOffTypes.map((option) => (
                     <MenuItem key={option.value} value={option.value}>
@@ -458,12 +535,14 @@ const TimeOff = () => {
                   <DatePicker
                     label="Start Date"
                     value={formData.startDate}
-                    onChange={(newValue) => setFormData({ ...formData, startDate: newValue })}
+                    onChange={(newValue) =>
+                      setFormData({ ...formData, startDate: newValue })
+                    }
                     renderInput={(params) => (
-                      <TextField 
-                        {...params} 
+                      <TextField
+                        {...params}
                         required
-                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3 } }}
+                        sx={{ "& .MuiOutlinedInput-root": { borderRadius: 3 } }}
                       />
                     )}
                     minDate={moment()}
@@ -471,12 +550,14 @@ const TimeOff = () => {
                   <DatePicker
                     label="End Date"
                     value={formData.endDate}
-                    onChange={(newValue) => setFormData({ ...formData, endDate: newValue })}
+                    onChange={(newValue) =>
+                      setFormData({ ...formData, endDate: newValue })
+                    }
                     renderInput={(params) => (
-                      <TextField 
-                        {...params} 
+                      <TextField
+                        {...params}
                         required
-                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3 } }}
+                        sx={{ "& .MuiOutlinedInput-root": { borderRadius: 3 } }}
                       />
                     )}
                     minDate={formData.startDate || moment()}
@@ -486,32 +567,35 @@ const TimeOff = () => {
                 <TextField
                   label="Reason"
                   value={formData.reason}
-                  onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, reason: e.target.value })
+                  }
                   required
                   multiline
                   rows={4}
-                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3 } }}
+                  sx={{ "& .MuiOutlinedInput-root": { borderRadius: 3 } }}
                 />
               </Stack>
             </DialogContent>
             <DialogActions sx={{ px: 3, pb: 3 }}>
-              <Button 
+              <Button
                 onClick={() => setOpenDialog(false)}
-                sx={{ 
+                sx={{
                   borderRadius: 3,
-                  px: 3
+                  px: 3,
                 }}
               >
                 Cancel
               </Button>
-              <Button 
+              <Button
                 type="submit"
                 variant="contained"
-                sx={{ 
+                sx={{
                   borderRadius: 3,
                   px: 3,
-                  background: 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)',
-                  boxShadow: '0 3px 5px 2px rgba(33, 203, 243, .3)'
+                  background:
+                    "linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)",
+                  boxShadow: "0 3px 5px 2px rgba(33, 203, 243, .3)",
                 }}
               >
                 Submit Request

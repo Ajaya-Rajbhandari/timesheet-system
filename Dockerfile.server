@@ -1,0 +1,20 @@
+# Use official Node.js image
+FROM node:18
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files
+COPY server/package.json server/package-lock.json ./
+
+# Install dependencies
+RUN npm install --production
+
+# Copy server source code
+COPY server/ .
+
+# Expose port 5000
+EXPOSE 5000
+
+# Start the application
+CMD ["node", "server.js"]

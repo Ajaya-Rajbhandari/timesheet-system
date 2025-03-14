@@ -16,7 +16,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    
+
     - name: Use Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v3
       with:
@@ -27,7 +27,7 @@ jobs:
       run: |
         cd server
         npm ci
-      
+
     - name: Install client dependencies
       run: |
         cd client
@@ -46,4 +46,4 @@ jobs:
     - name: Check client linting
       run: |
         cd client
-        npm run lint || true 
+        npm run lint || true

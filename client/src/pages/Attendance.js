@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   Box,
   Container,
@@ -29,38 +29,38 @@ import {
   ListItemText,
   Accordion,
   AccordionSummary,
-  AccordionDetails
-} from '@mui/material';
+  AccordionDetails,
+} from "@mui/material";
 import {
   AccessTime as ClockIcon,
   Timer as TimerIcon,
   LocalCafe as BreakIcon,
   ArrowForward as EndBreakIcon,
   ExpandMore as ExpandMoreIcon,
-  CalendarToday as CalendarIcon
-} from '@mui/icons-material';
-import DatePicker from '@mui/lab/DatePicker';
+  CalendarToday as CalendarIcon,
+} from "@mui/icons-material";
+import DatePicker from "@mui/lab/DatePicker";
 
-import moment from 'moment';
-import { useAuth } from '../contexts/AuthContext';
-import { useAttendance } from '../contexts/AttendanceContext';
-import { 
+import moment from "moment";
+import { useAuth } from "../contexts/AuthContext";
+import { useAttendance } from "../contexts/AttendanceContext";
+import {
   getAttendanceHistory,
-  getCurrentStatus
-} from '../services/attendanceService';
+  getCurrentStatus,
+} from "../services/attendanceService";
 
 const Attendance = () => {
   const theme = useTheme();
   const { user } = useAuth();
-  const { 
-    currentStatus, 
-    refreshStatus, 
-    getStatusText, 
+  const {
+    currentStatus,
+    refreshStatus,
+    getStatusText,
     getStatusColor,
     clockIn: contextClockIn,
     clockOut: contextClockOut,
     startBreak: contextStartBreak,
-    endBreak: contextEndBreak
+    endBreak: contextEndBreak,
   } = useAttendance();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -70,20 +70,20 @@ const Attendance = () => {
   const [groupedAttendance, setGroupedAttendance] = useState({});
   const [breakDialogOpen, setBreakDialogOpen] = useState(false);
   const [selectedBreaks, setSelectedBreaks] = useState([]);
-  const [selectedDate, setSelectedDate] = useState('');
-  
+  const [selectedDate, setSelectedDate] = useState("");
+
   // Reference for the timer interval
   const timerRef = useRef(null);
 
   // Force refresh status when component mounts
   useEffect(() => {
-    console.log('Attendance page mounted, forcing status refresh');
-    
+    console.log("Attendance page mounted, forcing status refresh");
+
     // Only refresh if user is authenticated
     if (user && user._id) {
       refreshStatus(true);
     } else {
-      console.log('User not authenticated yet, waiting for auth');
+      console.log("User not authenticated yet, waiting for auth");
     }
   }, [refreshStatus, user]);
 
@@ -93,36 +93,38 @@ const Attendance = () => {
     if (timerRef.current) {
       clearInterval(timerRef.current);
     }
-    
+
     // Set up a timer that updates every second
     timerRef.current = setInterval(() => {
       const now = moment();
       setCurrentTime(now);
-      
+
       // Check if day has changed and user is still clocked in
       if (currentStatus.isClockedIn && currentStatus.clockInTime) {
-        const clockInDate = moment(currentStatus.clockInTime).format('YYYY-MM-DD');
-        const currentDate = now.format('YYYY-MM-DD');
-        
+        const clockInDate = moment(currentStatus.clockInTime).format(
+          "YYYY-MM-DD",
+        );
+        const currentDate = now.format("YYYY-MM-DD");
+
         if (clockInDate !== currentDate) {
-          console.log('Day changed, auto clocking out user');
-          
+          console.log("Day changed, auto clocking out user");
+
           // Auto clock out at midnight
-          const clockOutTime = moment(clockInDate + 'T23:59:59');
-          
+          const clockOutTime = moment(clockInDate + "T23:59:59");
+
           // Update status directly
           contextClockOut();
-          
+
           // Add record for auto clock out
           const newRecord = {
             date: clockInDate,
             clockIn: currentStatus.clockInTime,
             clockOut: clockOutTime,
-            autoClockOut: true
+            autoClockOut: true,
           };
-          
-          console.log('Adding auto clock out record:', newRecord);
-          setAttendanceHistory(prev => [...prev, newRecord]);
+
+          console.log("Adding auto clock out record:", newRecord);
+          setAttendanceHistory((prev) => [...prev, newRecord]);
         }
       }
     }, 1000); // Update every second for smoother time display
@@ -132,7 +134,7 @@ const Attendance = () => {
       if (timerRef.current) {
         clearInterval(timerRef.current);
       }
-    }; 
+    };
   }, [currentStatus, contextClockOut]);
 
   // Group attendance data by day when attendance history changes
@@ -140,21 +142,21 @@ const Attendance = () => {
     if (attendanceHistory && attendanceHistory.length > 0) {
       const grouped = attendanceHistory.reduce((acc, record) => {
         // Use date from clockIn as the grouping key
-        const dateKey = moment(record.clockIn).format('YYYY-MM-DD');
-        
+        const dateKey = moment(record.clockIn).format("YYYY-MM-DD");
+
         if (!acc[dateKey]) {
           acc[dateKey] = [];
         }
-        
+
         acc[dateKey].push(record);
         return acc;
       }, {});
-      
+
       // Sort the records within each day
-      Object.keys(grouped).forEach(date => {
+      Object.keys(grouped).forEach((date) => {
         grouped[date].sort((a, b) => moment(b.clockIn).diff(moment(a.clockIn)));
       });
-      
+
       setGroupedAttendance(grouped);
     } else {
       setGroupedAttendance({});
@@ -164,19 +166,22 @@ const Attendance = () => {
   // Fetch attendance data on component mount and when selectedMonth changes
   const fetchAttendanceHistory = useCallback(async () => {
     if (!selectedMonth) return;
-    
+
     try {
       setLoading(true);
       setError(null);
-      
-      const startDate = selectedMonth.clone().startOf('month').format('YYYY-MM-DD');
-      const endDate = selectedMonth.clone().endOf('month').format('YYYY-MM-DD');
+
+      const startDate = selectedMonth
+        .clone()
+        .startOf("month")
+        .format("YYYY-MM-DD");
+      const endDate = selectedMonth.clone().endOf("month").format("YYYY-MM-DD");
       const historyData = await getAttendanceHistory(startDate, endDate);
       setAttendanceHistory(historyData);
     } catch (err) {
-      console.error('Failed to fetch attendance history:', err);
+      console.error("Failed to fetch attendance history:", err);
       setAttendanceHistory([]);
-      setError('Failed to load attendance history. Please try again.');
+      setError("Failed to load attendance history. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -192,13 +197,13 @@ const Attendance = () => {
     setError(null);
     try {
       await contextClockIn();
-      console.log('Clock in successful');
-      
+      console.log("Clock in successful");
+
       // Refresh history after status update
       fetchAttendanceHistory();
     } catch (err) {
-      console.error('Clock in error:', err);
-      setError(err.message || 'Failed to clock in');
+      console.error("Clock in error:", err);
+      setError(err.message || "Failed to clock in");
     } finally {
       setLoading(false);
     }
@@ -210,13 +215,13 @@ const Attendance = () => {
     setError(null);
     try {
       await contextClockOut();
-      console.log('Clock out successful');
-      
+      console.log("Clock out successful");
+
       // Refresh history after status update
       fetchAttendanceHistory();
     } catch (err) {
-      console.error('Clock out error:', err);
-      setError(err.message || 'Failed to clock out');
+      console.error("Clock out error:", err);
+      setError(err.message || "Failed to clock out");
     } finally {
       setLoading(false);
     }
@@ -228,10 +233,10 @@ const Attendance = () => {
     setError(null);
     try {
       await contextStartBreak();
-      console.log('Start break successful');
+      console.log("Start break successful");
     } catch (err) {
-      console.error('Start break error:', err);
-      setError(err.message || 'Failed to start break');
+      console.error("Start break error:", err);
+      setError(err.message || "Failed to start break");
     } finally {
       setLoading(false);
     }
@@ -243,10 +248,10 @@ const Attendance = () => {
     setError(null);
     try {
       await contextEndBreak();
-      console.log('End break successful');
+      console.log("End break successful");
     } catch (err) {
-      console.error('End break error:', err);
-      setError(err.message || 'Failed to end break');
+      console.error("End break error:", err);
+      setError(err.message || "Failed to end break");
     } finally {
       setLoading(false);
     }
@@ -254,42 +259,44 @@ const Attendance = () => {
 
   // Format time for display
   const formatTime = (time) => {
-    return time ? moment(time).format('hh:mm:ss A') : '';
+    return time ? moment(time).format("hh:mm:ss A") : "";
   };
 
   const getElapsedTime = () => {
     if (!currentStatus.isClockedIn || !currentStatus.clockInTime) {
-      return '00:00:00';
+      return "00:00:00";
     }
-    
+
     const clockInMoment = moment(currentStatus.clockInTime);
     const duration = moment.duration(currentTime.diff(clockInMoment));
-    
-    const hours = String(Math.floor(duration.asHours())).padStart(2, '0');
-    const minutes = String(duration.minutes()).padStart(2, '0');
-    const seconds = String(duration.seconds()).padStart(2, '0');
-    
+
+    const hours = String(Math.floor(duration.asHours())).padStart(2, "0");
+    const minutes = String(duration.minutes()).padStart(2, "0");
+    const seconds = String(duration.seconds()).padStart(2, "0");
+
     return `${hours}:${minutes}:${seconds}`;
   };
-  
+
   const isLongShift = () => {
     if (!currentStatus.isClockedIn || !currentStatus.clockInTime) {
       return false;
     }
-    
+
     const clockInMoment = moment(currentStatus.clockInTime);
     const duration = moment.duration(currentTime.diff(clockInMoment));
-    
+
     return duration.asHours() >= 12;
   };
 
   const calculateTotalBreakTime = (breaks) => {
     if (!breaks || breaks.length === 0) return 0;
-    
+
     let totalBreakTime = 0;
-    breaks.forEach(breakItem => {
+    breaks.forEach((breakItem) => {
       if (breakItem.startTime && breakItem.endTime) {
-        totalBreakTime += moment.duration(moment(breakItem.endTime).diff(moment(breakItem.startTime))).asMinutes();
+        totalBreakTime += moment
+          .duration(moment(breakItem.endTime).diff(moment(breakItem.startTime)))
+          .asMinutes();
       }
     });
     return Math.round(totalBreakTime);
@@ -298,7 +305,7 @@ const Attendance = () => {
   const handleBreakDetailsClick = (record) => {
     if (record.breaks && record.breaks.length > 0) {
       setSelectedBreaks(record.breaks);
-      setSelectedDate(moment(record.clockIn).format('MMMM D, YYYY'));
+      setSelectedDate(moment(record.clockIn).format("MMMM D, YYYY"));
       setBreakDialogOpen(true);
     }
   };
@@ -308,12 +315,12 @@ const Attendance = () => {
   };
 
   const formatBreakDuration = (startTime, endTime) => {
-    if (!startTime || !endTime) return 'N/A';
-    
+    if (!startTime || !endTime) return "N/A";
+
     const duration = moment.duration(moment(endTime).diff(moment(startTime)));
     const hours = Math.floor(duration.asHours());
     const minutes = duration.minutes();
-    
+
     if (hours > 0) {
       return `${hours}h ${minutes}m`;
     }
@@ -322,31 +329,40 @@ const Attendance = () => {
 
   // Calculate total hours for a day
   const calculateDailyTotalHours = (records) => {
-    if (!records || records.length === 0) return '0.00';
-    
+    if (!records || records.length === 0) return "0.00";
+
     let totalMinutes = 0;
-    
-    records.forEach(record => {
+
+    records.forEach((record) => {
       if (record.clockIn && record.clockOut) {
         // Calculate duration excluding breaks
-        let duration = moment.duration(moment(record.clockOut).diff(moment(record.clockIn)));
+        let duration = moment.duration(
+          moment(record.clockOut).diff(moment(record.clockIn)),
+        );
         let durationMinutes = duration.asMinutes();
-        
+
         // Subtract break times
         const breakMinutes = calculateTotalBreakTime(record.breaks);
         durationMinutes -= breakMinutes;
-        
+
         totalMinutes += durationMinutes;
       }
     });
-    
+
     // Convert minutes to hours with 2 decimal places
     return (totalMinutes / 60).toFixed(2);
   };
 
   if (loading || !currentStatus) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          height: "100vh",
+        }}
+      >
         <CircularProgress />
       </Box>
     );
@@ -354,23 +370,28 @@ const Attendance = () => {
 
   return (
     <Container maxWidth="lg">
-      <Box sx={{ mb: 4, textAlign: 'center' }}>
-        <Typography variant="h4" gutterBottom sx={{ 
-          fontWeight: 600,
-          background: theme.palette.mode === 'dark'
-            ? 'linear-gradient(45deg, #64B5F6 30%, #81D4FA 90%)'
-            : 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)',
-          backgroundClip: 'text',
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent'
-        }}>
+      <Box sx={{ mb: 4, textAlign: "center" }}>
+        <Typography
+          variant="h4"
+          gutterBottom
+          sx={{
+            fontWeight: 600,
+            background:
+              theme.palette.mode === "dark"
+                ? "linear-gradient(45deg, #64B5F6 30%, #81D4FA 90%)"
+                : "linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)",
+            backgroundClip: "text",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+          }}
+        >
           Welcome, {user?.firstName}
         </Typography>
         <Typography variant="h6" color="textSecondary">
-          {currentTime.format('dddd, MMMM D, YYYY')}
+          {currentTime.format("dddd, MMMM D, YYYY")}
         </Typography>
-        <Typography variant="h3" sx={{ fontFamily: 'monospace', mt: 2 }}>
-          {currentTime.format('HH:mm:ss')}
+        <Typography variant="h3" sx={{ fontFamily: "monospace", mt: 2 }}>
+          {currentTime.format("HH:mm:ss")}
         </Typography>
       </Box>
 
@@ -379,30 +400,36 @@ const Attendance = () => {
           {error}
         </Alert>
       )}
-      
+
       {currentStatus.isClockedIn && isLongShift() && (
         <Alert severity="warning" sx={{ mb: 3 }}>
-          You have been clocked in for more than 12 hours. Please remember to clock out when your shift ends.
+          You have been clocked in for more than 12 hours. Please remember to
+          clock out when your shift ends.
         </Alert>
       )}
 
-      <Card sx={{ 
-        mb: 4, 
-        borderRadius: 2,
-        boxShadow: theme.palette.mode === 'dark' 
-          ? '0 8px 32px 0 rgba(0, 0, 0, 0.37)'
-          : '0 8px 32px 0 rgba(31, 38, 135, 0.15)',
-        overflow: 'hidden'
-      }}>
-        <Box sx={{ 
-          p: 2, 
-          background: currentStatus.onBreak
-            ? 'linear-gradient(45deg, #FF9800 30%, #FFB74D 90%)'
-            : currentStatus.isClockedIn 
-              ? 'linear-gradient(45deg, #4CAF50 30%, #81C784 90%)'
-              : 'linear-gradient(45deg, #F44336 30%, #E57373 90%)',
-          color: 'white'
-        }}>
+      <Card
+        sx={{
+          mb: 4,
+          borderRadius: 2,
+          boxShadow:
+            theme.palette.mode === "dark"
+              ? "0 8px 32px 0 rgba(0, 0, 0, 0.37)"
+              : "0 8px 32px 0 rgba(31, 38, 135, 0.15)",
+          overflow: "hidden",
+        }}
+      >
+        <Box
+          sx={{
+            p: 2,
+            background: currentStatus.onBreak
+              ? "linear-gradient(45deg, #FF9800 30%, #FFB74D 90%)"
+              : currentStatus.isClockedIn
+                ? "linear-gradient(45deg, #4CAF50 30%, #81C784 90%)"
+                : "linear-gradient(45deg, #F44336 30%, #E57373 90%)",
+            color: "white",
+          }}
+        >
           <Typography variant="h6" sx={{ fontWeight: 600 }}>
             Current Status: {getStatusText()}
           </Typography>
@@ -410,59 +437,88 @@ const Attendance = () => {
         <CardContent>
           <Grid container spacing={3} alignItems="center">
             <Grid item xs={12} md={6}>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: { xs: 2, md: 0 } }}>
-                <ClockIcon sx={{ fontSize: 40, mr: 2, color: 'primary.main' }} />
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  mb: { xs: 2, md: 0 },
+                }}
+              >
+                <ClockIcon
+                  sx={{ fontSize: 40, mr: 2, color: "primary.main" }}
+                />
                 <Box>
                   <Typography variant="body2" color="textSecondary">
-                    {currentStatus.isClockedIn ? 'Clocked in at:' : 'Last clock out:'}
+                    {currentStatus.isClockedIn
+                      ? "Clocked in at:"
+                      : "Last clock out:"}
                   </Typography>
                   <Typography variant="h6">
-                    {currentStatus.isClockedIn && currentStatus.clockInTime 
+                    {currentStatus.isClockedIn && currentStatus.clockInTime
                       ? formatTime(currentStatus.clockInTime)
-                      : currentStatus.clockOutTime 
+                      : currentStatus.clockOutTime
                         ? formatTime(currentStatus.clockOutTime)
-                        : 'Not available'}
+                        : "Not available"}
                   </Typography>
                 </Box>
               </Box>
             </Grid>
-            
+
             {currentStatus.isClockedIn && (
               <Grid item xs={12} md={6}>
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <TimerIcon sx={{ fontSize: 40, mr: 2, color: 'primary.main' }} />
+                <Box sx={{ display: "flex", alignItems: "center" }}>
+                  <TimerIcon
+                    sx={{ fontSize: 40, mr: 2, color: "primary.main" }}
+                  />
                   <Box>
                     <Typography variant="body2" color="textSecondary">
                       Time elapsed:
                     </Typography>
-                    <Typography variant="h6" sx={{ fontFamily: 'monospace' }}>
+                    <Typography variant="h6" sx={{ fontFamily: "monospace" }}>
                       {getElapsedTime()}
                     </Typography>
                   </Box>
                 </Box>
               </Grid>
             )}
-            
+
             {currentStatus.onBreak && (
               <Grid item xs={12}>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mt: 1 }}>
-                  <Chip 
-                    icon={<BreakIcon />} 
-                    label={`On Break since ${formatTime(currentStatus.breakStartTime)}`} 
-                    color="warning" 
-                    variant="outlined" 
-                    sx={{ fontSize: '1rem', py: 2 }}
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    mt: 1,
+                  }}
+                >
+                  <Chip
+                    icon={<BreakIcon />}
+                    label={`On Break since ${formatTime(
+                      currentStatus.breakStartTime,
+                    )}`}
+                    color="warning"
+                    variant="outlined"
+                    sx={{ fontSize: "1rem", py: 2 }}
                   />
                 </Box>
               </Grid>
             )}
-            
+
             <Grid item xs={12}>
-              <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2, flexDirection: 'column', alignItems: 'center' }}>
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "center",
+                  mt: 2,
+                  flexDirection: "column",
+                  alignItems: "center",
+                }}
+              >
                 {(loading || currentStatus.isLoading) && (
                   <CircularProgress sx={{ mb: 2 }} />
                 )}
-                
+
                 {!currentStatus.isClockedIn ? (
                   <Button
                     variant="contained"
@@ -477,7 +533,11 @@ const Attendance = () => {
                   </Button>
                 ) : (
                   <>
-                    <ButtonGroup variant="contained" size="large" sx={{ mb: 2 }}>
+                    <ButtonGroup
+                      variant="contained"
+                      size="large"
+                      sx={{ mb: 2 }}
+                    >
                       {!currentStatus.onBreak ? (
                         <Button
                           color="warning"
@@ -500,7 +560,7 @@ const Attendance = () => {
                         </Button>
                       )}
                     </ButtonGroup>
-                    
+
                     <Button
                       variant="contained"
                       color="error"
@@ -520,59 +580,89 @@ const Attendance = () => {
         </CardContent>
       </Card>
 
-      <Card sx={{ 
-        background: theme.palette.mode === 'dark'
-          ? 'linear-gradient(135deg, rgba(37, 37, 37, 0.9), rgba(30, 30, 30, 0.9))'
-          : 'linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(240, 240, 240, 0.9))',
-        backdropFilter: 'blur(10px)',
-        border: `1px solid ${theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}`,
-      }}>
+      <Card
+        sx={{
+          background:
+            theme.palette.mode === "dark"
+              ? "linear-gradient(135deg, rgba(37, 37, 37, 0.9), rgba(30, 30, 30, 0.9))"
+              : "linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(240, 240, 240, 0.9))",
+          backdropFilter: "blur(10px)",
+          border: `1px solid ${
+            theme.palette.mode === "dark"
+              ? "rgba(255, 255, 255, 0.1)"
+              : "rgba(0, 0, 0, 0.1)"
+          }`,
+        }}
+      >
         <CardContent>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              mb: 3,
+            }}
+          >
             <Typography variant="h6">Attendance History</Typography>
             <DatePicker
-              views={['month', 'year']}
+              views={["month", "year"]}
               value={selectedMonth}
               onChange={(newValue) => setSelectedMonth(newValue)}
-              slotProps={{ textField: { size: 'small' } }}
+              slotProps={{ textField: { size: "small" } }}
             />
           </Box>
-          
+
           {Object.keys(groupedAttendance).length > 0 ? (
             Object.keys(groupedAttendance)
               .sort((a, b) => moment(b).diff(moment(a))) // Sort dates in descending order
-              .map(date => (
+              .map((date) => (
                 <Accordion key={date} sx={{ mb: 2, boxShadow: 1 }}>
                   <AccordionSummary
                     expandIcon={<ExpandMoreIcon />}
                     aria-controls={`attendance-${date}-content`}
                     id={`attendance-${date}-header`}
-                    sx={{ 
-                      backgroundColor: theme.palette.mode === 'dark' 
-                        ? 'rgba(255, 255, 255, 0.05)' 
-                        : 'rgba(0, 0, 0, 0.03)' 
+                    sx={{
+                      backgroundColor:
+                        theme.palette.mode === "dark"
+                          ? "rgba(255, 255, 255, 0.05)"
+                          : "rgba(0, 0, 0, 0.03)",
                     }}
                   >
-                    <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', justifyContent: 'space-between' }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        width: "100%",
+                        justifyContent: "space-between",
+                      }}
+                    >
+                      <Box sx={{ display: "flex", alignItems: "center" }}>
                         <CalendarIcon sx={{ mr: 1 }} />
-                        <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
-                          {moment(date).format('dddd, MMMM D, YYYY')}
+                        <Typography
+                          variant="subtitle1"
+                          sx={{ fontWeight: "bold" }}
+                        >
+                          {moment(date).format("dddd, MMMM D, YYYY")}
                         </Typography>
                       </Box>
-                      <Chip 
-                        label={`${calculateDailyTotalHours(groupedAttendance[date])} hours`}
+                      <Chip
+                        label={`${calculateDailyTotalHours(
+                          groupedAttendance[date],
+                        )} hours`}
                         color="primary"
                         size="small"
-                        sx={{ fontWeight: 'bold' }}
+                        sx={{ fontWeight: "bold" }}
                       />
                     </Box>
                   </AccordionSummary>
                   <AccordionDetails>
-                    <TableContainer component={Paper} sx={{ 
-                      background: 'transparent',
-                      boxShadow: 'none'
-                    }}>
+                    <TableContainer
+                      component={Paper}
+                      sx={{
+                        background: "transparent",
+                        boxShadow: "none",
+                      }}
+                    >
                       <Table size="small">
                         <TableHead>
                           <TableRow>
@@ -586,35 +676,60 @@ const Attendance = () => {
                         <TableBody>
                           {groupedAttendance[date].map((record) => (
                             <TableRow key={record._id}>
-                              <TableCell>{moment(record.clockIn).format('HH:mm:ss')}</TableCell>
                               <TableCell>
-                                {record.clockOut ? moment(record.clockOut).format('HH:mm:ss') : '-'}
+                                {moment(record.clockIn).format("HH:mm:ss")}
                               </TableCell>
                               <TableCell>
-                                {record.clockOut 
-                                  ? (moment.duration(moment(record.clockOut).diff(moment(record.clockIn))).asHours() - 
-                                     (calculateTotalBreakTime(record.breaks) / 60)).toFixed(2)
-                                  : '-'}
+                                {record.clockOut
+                                  ? moment(record.clockOut).format("HH:mm:ss")
+                                  : "-"}
+                              </TableCell>
+                              <TableCell>
+                                {record.clockOut
+                                  ? (
+                                      moment
+                                        .duration(
+                                          moment(record.clockOut).diff(
+                                            moment(record.clockIn),
+                                          ),
+                                        )
+                                        .asHours() -
+                                      calculateTotalBreakTime(record.breaks) /
+                                        60
+                                    ).toFixed(2)
+                                  : "-"}
                               </TableCell>
                               <TableCell>
                                 {record.breaks && record.breaks.length > 0 ? (
                                   <Chip
-                                    label={`${record.breaks.length} break${record.breaks.length > 1 ? 's' : ''} (${calculateTotalBreakTime(record.breaks)} min)`}
+                                    label={`${record.breaks.length} break${
+                                      record.breaks.length > 1 ? "s" : ""
+                                    } (${calculateTotalBreakTime(
+                                      record.breaks,
+                                    )} min)`}
                                     color="warning"
                                     size="small"
-                                    onClick={() => handleBreakDetailsClick(record)}
+                                    onClick={() =>
+                                      handleBreakDetailsClick(record)
+                                    }
                                   />
                                 ) : (
-                                  '-'
+                                  "-"
                                 )}
                               </TableCell>
                               <TableCell>
                                 <Chip
-                                  label={record.status || (record.clockOut ? 'Completed' : 'Active')}
+                                  label={
+                                    record.status ||
+                                    (record.clockOut ? "Completed" : "Active")
+                                  }
                                   color={
-                                    record.status === 'Present' || record.clockOut ? 'success' :
-                                    record.status === 'Late' ? 'warning' :
-                                    'error'
+                                    record.status === "Present" ||
+                                    record.clockOut
+                                      ? "success"
+                                      : record.status === "Late"
+                                        ? "warning"
+                                        : "error"
                                   }
                                   size="small"
                                 />
@@ -628,7 +743,7 @@ const Attendance = () => {
                 </Accordion>
               ))
           ) : (
-            <Box sx={{ textAlign: 'center', py: 4 }}>
+            <Box sx={{ textAlign: "center", py: 4 }}>
               <Typography variant="body1" color="textSecondary">
                 No attendance records found for the selected month.
               </Typography>
@@ -652,21 +767,46 @@ const Attendance = () => {
           {selectedBreaks.length > 0 ? (
             <List>
               {selectedBreaks.map((breakItem, index) => (
-                <ListItem key={index} divider={index < selectedBreaks.length - 1}>
+                <ListItem
+                  key={index}
+                  divider={index < selectedBreaks.length - 1}
+                >
                   <ListItemText
                     primary={`Break #${index + 1}`}
                     secondary={
                       <React.Fragment>
-                        <Typography component="span" variant="body2" color="textPrimary">
-                          Start: {moment(breakItem.startTime).format('HH:mm:ss')}
+                        <Typography
+                          component="span"
+                          variant="body2"
+                          color="textPrimary"
+                        >
+                          Start:{" "}
+                          {moment(breakItem.startTime).format("HH:mm:ss")}
                         </Typography>
                         <br />
-                        <Typography component="span" variant="body2" color="textPrimary">
-                          End: {breakItem.endTime ? moment(breakItem.endTime).format('HH:mm:ss') : 'Not ended'}
+                        <Typography
+                          component="span"
+                          variant="body2"
+                          color="textPrimary"
+                        >
+                          End:{" "}
+                          {breakItem.endTime
+                            ? moment(breakItem.endTime).format("HH:mm:ss")
+                            : "Not ended"}
                         </Typography>
                         <br />
-                        <Typography component="span" variant="body2" color="textPrimary">
-                          Duration: {breakItem.endTime ? formatBreakDuration(breakItem.startTime, breakItem.endTime) : 'In progress'}
+                        <Typography
+                          component="span"
+                          variant="body2"
+                          color="textPrimary"
+                        >
+                          Duration:{" "}
+                          {breakItem.endTime
+                            ? formatBreakDuration(
+                                breakItem.startTime,
+                                breakItem.endTime,
+                              )
+                            : "In progress"}
                         </Typography>
                       </React.Fragment>
                     }

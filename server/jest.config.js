@@ -1,9 +1,10 @@
 module.exports = {
-  testEnvironment: 'node',
+  testEnvironment: "node",
+  setupFiles: ["<rootDir>/tests/setup.js"],
+  testMatch: ["**/__tests__/**/*.js", "**/?(*.)+(spec|test).js"],
   verbose: true,
-  coveragePathIgnorePatterns: ['/node_modules/'],
-  testMatch: ['**/__tests__/**/*.js', '**/?(*.)+(spec|test).js'],
-  collectCoverage: true,
-  coverageReporters: ['text', 'lcov'],
-  coverageDirectory: 'coverage'
-}; 
+  forceExit: true,
+  clearMocks: true,
+  resetMocks: true,
+  restoreMocks: true,
+};

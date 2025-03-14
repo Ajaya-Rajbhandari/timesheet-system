@@ -1,205 +1,138 @@
-# Security Documentation for Timesheet System
+# Security Documentation
 
-## Recent Security Incident and Resolution (March 11, 2025)
+This document outlines the security measures implemented in the Timesheet System application.
 
-### Security Alert
+## Authentication & Authorization
 
-On March 10th, 2025, GitGuardian detected exposed secrets in the GitHub repository. The following sensitive information was committed to the public repository:
+### Authentication Flow
 
-- MongoDB connection string with username and password
-- JWT secret key used for authentication
-- SMTP password for email functionality
+1. User submits credentials (username/password)
+2. Server validates credentials against hashed password in database
+3. If valid, server generates JWT token with user information and role
+4. Token is returned to client and stored in memory/localStorage
+5. Token is included in Authorization header for subsequent requests
+6. Server validates token for each protected route
 
-### Resolution Steps Taken
+### Password Security
 
-#### 1. Removed Sensitive Data from Git History
+- Passwords are hashed using bcrypt with configurable salt rounds
+- Password strength requirements enforced:
+  - Minimum length (configurable, default 8)
+  - Uppercase letters
+  - Lowercase letters
+  - Numbers
+  - Special characters
+- Failed login attempts are tracked and can trigger account lockout
+- Password reset tokens have short expiration times
 
-We used the BFG Repo-Cleaner tool to remove the sensitive data from the Git history:
+### Token Security
 
-```bash
-# Downloaded BFG tool
-curl -L -o bfg.jar https://repo1.maven.org/maven2/com/madgag/bfg/1.14.0/bfg-1.14.0.jar
+- JWT tokens include expiration time
+- Refresh token rotation for extended sessions
+- Tokens are validated on every request
+- Token payload includes only necessary user information
+- Tokens are signed with a strong secret
 
-# Created a file with the sensitive data to be replaced
-# (passwords.txt containing the sensitive strings)
+## API Security
 
-# Ran BFG to replace the sensitive data
-java -jar bfg.jar --replace-text passwords.txt
+### Request Validation
 
-# Cleaned up and pushed the changes
-git reflog expire --expire=now --all
-git gc --prune=now --aggressive
-git push --force
+- Input validation on all endpoints
+- Data sanitization to prevent injection attacks
+- Rate limiting on authentication endpoints
+- CORS configuration to restrict origins
 
-# Deleted the passwords.txt file
-del passwords.txt
-```
+### Response Security
 
-#### 2. Rotated All Compromised Credentials
+- Security headers on all responses:
+  - Content-Security-Policy
+  - X-XSS-Protection
+  - X-Content-Type-Options
+  - X-Frame-Options
+  - Referrer-Policy
+  - Strict-Transport-Security (in production)
+  - Permissions-Policy
+- No sensitive data in responses
+- Consistent error messages that don't leak information
 
-**MongoDB Password:**
-- Changed the password in MongoDB Atlas Database Access
-- Updated the connection string in the .env file
+## Data Protection
 
-**JWT Secret:**
-- Generated a new secure random string using Node.js crypto module
-- Updated the JWT_SECRET in the .env file
+### Sensitive Data Handling
 
-**SMTP Password:**
-- Generated a new Gmail app password
-- Updated the SMTP_PASSWORD in the .env file
+- Environment variables for all secrets and credentials
+- No hardcoded secrets in code
+- Database credentials protected
+- API keys and secrets managed securely
 
-#### 3. Improved Security Configuration
+### Database Security
 
-- Updated .gitignore to properly exclude .env files
-- Created .env.example template without actual secrets
-- Added comprehensive security documentation
+- Connections use authentication
+- Sensitive fields excluded from query results
+- Proper indexing to prevent DoS attacks
+- Data validation before storage
 
-#### 4. Verified System Functionality
+## Monitoring & Logging
 
-- Restarted the server with new credentials
-- Confirmed successful MongoDB connection
-- Tested authentication flow with new JWT secret
-- Verified email functionality with new SMTP password
+### Audit Logging
 
-## Addressing the Exposed Secrets Issue
+- Authentication events logged
+- Authorization failures logged
+- Admin actions logged
+- Logs exclude sensitive information
+- Structured logging format for analysis
 
-### What Happened
+### Security Monitoring
 
-GitGuardian detected exposed secrets in your GitHub repository. The following sensitive information was committed to your public repository:
+- Failed authentication attempts tracked
+- Unusual access patterns can be detected
+- Rate limiting helps prevent brute force attacks
 
-- MongoDB connection string with username and password
-- JWT secret key used for authentication
-- SMTP password for email functionality
+## Development Practices
 
-### Immediate Steps to Take
+### Secure Coding
 
-#### 1. Rotate All Compromised Credentials
+- Dependencies regularly updated
+- Security-focused code reviews
+- No sensitive information in comments or logs
+- Proper error handling
 
-**MongoDB Password:**
-1. Log in to [MongoDB Atlas](https://cloud.mongodb.com/)
-2. Navigate to Database Access > Edit the user
-3. Reset the password to a new secure value
-4. Update your local .env file with the new connection string
+### Environment Configuration
 
-**JWT Secret:**
-1. Generate a new secure random string:
-   ```bash
-   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-   ```
-2. Update your local .env file with this new value
+- Different configurations for development/production
+- Required security variables validated on startup
+- Secure defaults for optional settings
 
-**SMTP Password:**
-1. Go to your Gmail account > Security > App passwords
-2. Delete the existing app password
-3. Generate a new app password
-4. Update your local .env file with the new password
+## Deployment Security
 
-#### 2. Remove Sensitive Data from Git History
+### Production Safeguards
 
-Use the BFG Repo-Cleaner to remove sensitive data from your git history:
+- HTTPS enforced in production
+- Strict security headers
+- Environment validation prevents startup with missing security variables
+- Rate limiting and other protections automatically enabled
 
-```bash
-# Download BFG from https://rtyley.github.io/bfg-repo-cleaner/
+## Security Testing
 
-# Create a file with the sensitive data to be replaced
-echo "hexY440ztbzpvOYp" > passwords.txt
-echo "6161f428f66e3f611d74e8ce9db49c5866af3ce3026c07fe21992785f75933db" >> passwords.txt
-echo "bitb nasm xgfz weby" >> passwords.txt
+### Automated Checks
 
-# Run BFG to replace the sensitive data
-java -jar bfg.jar --replace-text passwords.txt
+- Pre-commit hooks to detect secrets
+- Security-focused tests
+- Authentication and authorization tests
 
-# Clean up and push the changes
-git reflog expire --expire=now --all
-git gc --prune=now --aggressive
-git push --force
+## Incident Response
 
-# Delete the passwords.txt file
-rm passwords.txt
-```
+### Security Vulnerabilities
 
-## Preventing Future Security Issues
+If you discover a security vulnerability, please do NOT open an issue. Email [security@example.com](mailto:security@example.com) instead.
 
-### Environment Variables Best Practices
+## Security Checklist for Developers
 
-1. **Never commit .env files to version control**
-   - We've updated your .gitignore to exclude .env files
-   - Use .env.example to document required variables without actual values
-
-2. **Use different .env files for different environments**
-   - .env.development for local development
-   - .env.test for testing
-   - .env.production for production
-
-3. **Limit access to production credentials**
-   - Only share production credentials with team members who need them
-   - Consider using a secrets management service for production
-
-### Secure JWT Implementation
-
-1. **JWT Secret Management**
-   - Always use a strong, randomly generated secret
-   - Rotate the secret periodically (e.g., every 90 days)
-   - Consider using environment-specific secrets
-
-2. **Token Security**
-   - Set appropriate expiration times (we currently use 24 hours)
-   - Consider implementing token refresh mechanism
-   - Validate tokens on every request
-
-### Role-Based Access Control
-
-As per your existing security model:
-
-1. **User Creation**
-   - Only administrators and managers can create new users
-   - Public signup has been removed
-
-2. **Schedule Management**
-   - Only managers and administrators can create or edit schedules
-   - Regular employees can only view their own schedules
-
-### Regular Security Audits
-
-1. **Code Reviews**
-   - Implement mandatory code reviews before merging to main branches
-   - Use automated tools to scan for security issues
-
-2. **Dependency Scanning**
-   - Regularly update dependencies to patch security vulnerabilities
-   - Use tools like npm audit to identify vulnerable dependencies
-
-3. **Secret Scanning**
-   - Consider using pre-commit hooks to prevent committing secrets
-   - Set up GitGuardian or similar tools for continuous monitoring
-
-## Verifying Security After Changes
-
-After rotating credentials and implementing security improvements:
-
-1. **Test Authentication Flow**
-   - Verify that users can log in successfully
-   - Confirm that role-based access control works correctly
-   - Test password reset functionality
-
-2. **Check API Security**
-   - Verify that unauthenticated requests are properly rejected
-   - Confirm that users can only access authorized resources
-
-3. **Monitor for Unusual Activity**
-   - Watch application logs for unusual authentication attempts
-   - Monitor database access patterns
-
-## Security Contacts
-
-If you discover a security vulnerability, please report it by:
-
-- Opening a confidential issue in your repository
-- Contacting the security team at [your-security-email@example.com]
-
-## Additional Resources
-
-- [OWASP Top Ten](https://owasp.org/www-project-top-ten/)
-- [Node.js Security Best Practices](https://github.com/goldbergyoni/nodebestpractices#6-security-best-practices)
-- [MongoDB Security Checklist](https://docs.mongodb.com/manual/administration/security-checklist/)
+- [ ] Never commit `.env` files with real credentials
+- [ ] Use the `.env.example` template for required variables
+- [ ] Ensure all user inputs are validated
+- [ ] Don't log sensitive information
+- [ ] Keep dependencies updated
+- [ ] Follow the principle of least privilege for API endpoints
+- [ ] Use the authentication middleware for protected routes
+- [ ] Implement proper role checks for authorization
+- [ ] Test security measures before deployment

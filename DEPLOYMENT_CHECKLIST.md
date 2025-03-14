@@ -7,10 +7,12 @@ This document outlines the steps required to properly deploy the timesheet syste
 ### Server Environment Variables (.env)
 
 1. **Update the CLIENT_URL**
+
    - Change `CLIENT_URL=https://your-production-domain.com` to your actual production domain
    - This ensures password reset links point to the correct location
 
 2. **Configure SMTP Settings**
+
    - Uncomment and configure the following settings:
      ```
      SMTP_HOST=your-smtp-server.com
@@ -23,6 +25,7 @@ This document outlines the steps required to properly deploy the timesheet syste
    - These settings are required for the password reset emails to be sent properly
 
 3. **Verify MongoDB Connection**
+
    - Ensure `MONGODB_URI` points to your production MongoDB instance
    - Consider using environment variables or a secrets manager for sensitive credentials
 
@@ -35,6 +38,7 @@ This document outlines the steps required to properly deploy the timesheet syste
 ### Client (React App)
 
 1. **Build the React App**
+
    ```bash
    cd client
    npm run build
@@ -46,6 +50,7 @@ This document outlines the steps required to properly deploy the timesheet syste
 ### Server (Node.js)
 
 1. **Install Production Dependencies**
+
    ```bash
    cd server
    npm install --production
@@ -57,9 +62,11 @@ This document outlines the steps required to properly deploy the timesheet syste
 ## Deployment Steps
 
 1. **Database Migration**
+
    - If needed, run any database migrations or setup scripts
 
 2. **User Schema Update**
+
    - Verify that the User model includes the reset password fields:
      - `resetPasswordToken`
      - `resetPasswordExpires`
@@ -74,13 +81,16 @@ This document outlines the steps required to properly deploy the timesheet syste
 ## Security Considerations
 
 1. **HTTPS**
+
    - Ensure your application is served over HTTPS
    - This is critical for secure password reset links
 
 2. **CORS Configuration**
+
    - Update CORS settings in server.js to allow only your production domain
 
 3. **Rate Limiting**
+
    - Consider implementing rate limiting for password reset requests to prevent abuse
 
 4. **Email Template**
@@ -89,6 +99,7 @@ This document outlines the steps required to properly deploy the timesheet syste
 ## Monitoring
 
 1. **Error Logging**
+
    - Set up error logging for authentication and password reset failures
    - Consider using a service like Sentry or LogRocket
 
@@ -98,6 +109,7 @@ This document outlines the steps required to properly deploy the timesheet syste
 ## Post-Deployment
 
 1. **User Communication**
+
    - Inform users about the new password reset functionality
    - Update any user documentation or help guides
 

@@ -1,11 +1,11 @@
-import api from './api';
+import api from "./api";
 
 /**
  * Get all shift swaps for the current user
  * @returns {Promise} Promise object with shift swaps data
  */
 export const getMyShiftSwaps = async () => {
-  const response = await api.get('/shift-swaps');
+  const response = await api.get("/shift-swaps");
   return response.data;
 };
 
@@ -29,7 +29,7 @@ export const getDepartmentShiftSwaps = async (departmentId) => {
  * @returns {Promise} Promise object with created shift swap
  */
 export const requestShiftSwap = async (swapData) => {
-  const response = await api.post('/shift-swaps/request', swapData);
+  const response = await api.post("/shift-swaps/request", swapData);
   return response.data;
 };
 
@@ -42,7 +42,10 @@ export const requestShiftSwap = async (swapData) => {
  * @returns {Promise} Promise object with updated shift swap
  */
 export const respondToShiftSwap = async (swapId, responseData) => {
-  const response = await api.put(`/shift-swaps/${swapId}/respond`, responseData);
+  const response = await api.put(
+    `/shift-swaps/${swapId}/respond`,
+    responseData,
+  );
   return response.data;
 };
 
@@ -55,6 +58,9 @@ export const respondToShiftSwap = async (swapId, responseData) => {
  * @returns {Promise} Promise object with updated shift swap
  */
 export const approveShiftSwap = async (swapId, approvalData) => {
-  const response = await api.put(`/shift-swaps/${swapId}/manager-approval`, approvalData);
+  const response = await api.put(
+    `/shift-swaps/${swapId}/manager-approval`,
+    approvalData,
+  );
   return response.data;
-}; 
+};

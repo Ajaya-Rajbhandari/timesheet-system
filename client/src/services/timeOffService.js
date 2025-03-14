@@ -1,48 +1,50 @@
-import api from './api';
+import api from "./api";
 
 // Create time-off request
 export const createTimeOffRequest = async (data) => {
   try {
-    const response = await api.post('/timeoff', data);
+    const response = await api.post("/timeoff", data);
     return response.data;
   } catch (error) {
-    throw error.response?.data?.message || 'Error creating time-off request';
+    throw error.response?.data?.message || "Error creating time-off request";
   }
 };
 
 // Get current user's time-off requests
 export const getMyTimeOffRequests = async (status, year) => {
   try {
-    const response = await api.get('/timeoff/my-requests', {
-      params: { status, year }
+    const response = await api.get("/timeoff/my-requests", {
+      params: { status, year },
     });
     return response.data;
   } catch (error) {
-    throw error.response?.data?.message || 'Error getting your time-off requests';
+    throw (
+      error.response?.data?.message || "Error getting your time-off requests"
+    );
   }
 };
 
 // Get time-off requests (admin/manager)
 export const getTimeOffRequests = async (status, startDate, endDate) => {
   try {
-    const response = await api.get('/timeoff', {
-      params: { status, startDate, endDate }
+    const response = await api.get("/timeoff", {
+      params: { status, startDate, endDate },
     });
     return response.data;
   } catch (error) {
-    throw error.response?.data?.message || 'Error getting time-off requests';
+    throw error.response?.data?.message || "Error getting time-off requests";
   }
 };
 
 // Get all time-off requests (admin/manager)
 export const getAllTimeOffRequests = async (status, startDate, endDate) => {
   try {
-    const response = await api.get('/timeoff', {
-      params: { status, startDate, endDate }
+    const response = await api.get("/timeoff", {
+      params: { status, startDate, endDate },
     });
     return response.data;
   } catch (error) {
-    throw error.response?.data?.message || 'Error getting time-off requests';
+    throw error.response?.data?.message || "Error getting time-off requests";
   }
 };
 
@@ -52,7 +54,7 @@ export const getTimeOffRequestById = async (id) => {
     const response = await api.get(`/timeoff/${id}`);
     return response.data;
   } catch (error) {
-    throw error.response?.data?.message || 'Error getting time-off request';
+    throw error.response?.data?.message || "Error getting time-off request";
   }
 };
 
@@ -62,17 +64,20 @@ export const updateTimeOffRequest = async (id, data) => {
     const response = await api.put(`/timeoff/${id}`, data);
     return response.data;
   } catch (error) {
-    throw error.response?.data?.message || 'Error updating time-off request';
+    throw error.response?.data?.message || "Error updating time-off request";
   }
 };
 
 // Approve/reject time-off request (admin/manager)
 export const updateTimeOffStatus = async (id, status, comment) => {
   try {
-    const response = await api.put(`/timeoff/${id}/status`, { status, comment });
+    const response = await api.put(`/timeoff/${id}/status`, {
+      status,
+      comment,
+    });
     return response.data;
   } catch (error) {
-    throw error.response?.data?.message || 'Error updating time-off status';
+    throw error.response?.data?.message || "Error updating time-off status";
   }
 };
 
@@ -82,7 +87,7 @@ export const cancelTimeOffRequest = async (id) => {
     const response = await api.put(`/timeoff/${id}/cancel`);
     return response.data;
   } catch (error) {
-    throw error.response?.data?.message || 'Error canceling time-off request';
+    throw error.response?.data?.message || "Error canceling time-off request";
   }
 };
 
@@ -92,7 +97,7 @@ export const addTimeOffComment = async (id, text) => {
     const response = await api.post(`/timeoff/${id}/comment`, { text });
     return response.data;
   } catch (error) {
-    throw error.response?.data?.message || 'Error adding comment';
+    throw error.response?.data?.message || "Error adding comment";
   }
 };
 
@@ -100,10 +105,12 @@ export const addTimeOffComment = async (id, text) => {
 export const getUserTimeOffRequests = async (userId, status, year) => {
   try {
     const response = await api.get(`/timeoff/user/${userId}`, {
-      params: { status, year }
+      params: { status, year },
     });
     return response.data;
   } catch (error) {
-    throw error.response?.data?.message || 'Error getting user time-off requests';
+    throw (
+      error.response?.data?.message || "Error getting user time-off requests"
+    );
   }
 };

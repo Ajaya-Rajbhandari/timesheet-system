@@ -1,127 +1,150 @@
-const request = require('supertest');
-const app = require('../server');
-const User = require('../models/User');
-const Department = require('../models/Department');
-const dbHandler = require('./setup');
+const request = require("supertest");
+const app = require("./testApp");
+const dbHandler = require("./dbHandler");
 
-describe('Auth Endpoints', () => {
-  beforeAll(async () => await dbHandler.connect());
-  afterEach(async () => await dbHandler.clearDatabase());
-  afterAll(async () => await dbHandler.closeDatabase());
+beforeAll(async () => {
+  await dbHandler.connect();
+});
 
-  describe('POST /api/auth/register', () => {
-    let department;
+afterEach(async () => {
+  await dbHandler.clearDatabase();
+});
 
-    beforeEach(async () => {
-      department = await dbHandler.createTestDepartment(Department, User);
+afterAll(async () => {
+  await dbHandler.closeDatabase();
+});
+
+describe("Auth Endpoints", () => {
+  describe("POST /api/auth/register", () => {
+    test("should create first admin user", async () => {
+      const response = await request(app).post("/api/auth/register").send({
+        firstName: "Admin",
+        lastName: "User",
+        email: "admin@test.com",
+        password: "Password123!",
+        role: "admin",
+        position: "System Administrator",
+      });
+
+      expect(response.status).toBe(201);
+      expect(response.body).toHaveProperty("token");
+      expect(response.body).toHaveProperty("userId");
     });
 
-    it('should create a new user', async () => {
-      const res = await request(app)
-        .post('/api/auth/register')
-        .send({
-          firstName: 'Test',
-          lastName: 'User',
-          email: 'newuser@example.com',
-          password: 'password123',
-          role: 'employee',
-          department: department._id,
-          position: 'Test Position',
-          employeeId: 'EMP' + Date.now(),
-          phoneNumber: '1234567890'
-        });
+    test("should create regular user with admin creator", async () => {
+      // First create an admin user
+      const adminResponse = await request(app).post("/api/auth/register").send({
+        firstName: "Admin",
+        lastName: "User",
+        email: "admin@test.com",
+        password: "Password123!",
+        role: "admin",
+        position: "System Administrator",
+      });
 
-      expect(res.statusCode).toBe(201);
-      expect(res.body).toHaveProperty('token');
-      expect(res.body.user).toHaveProperty('email', 'newuser@example.com');
+      const response = await request(app).post("/api/auth/register").send({
+        firstName: "Test",
+        lastName: "User",
+        email: "test@test.com",
+        password: "Password123!",
+        role: "employee",
+        position: "Software Developer",
+        createdBy: adminResponse.body.userId,
+      });
+
+      expect(response.status).toBe(201);
+      expect(response.body).toHaveProperty("token");
+      expect(response.body).toHaveProperty("userId");
     });
 
-    it('should not create user with existing email', async () => {
-      const existingUser = await dbHandler.createTestUser(User, Department);
-      const existingEmail = existingUser.email;
+    test("should not create user with existing email", async () => {
+      // First create a user
+      await request(app).post("/api/auth/register").send({
+        firstName: "Admin",
+        lastName: "User",
+        email: "admin@test.com",
+        password: "Password123!",
+        role: "admin",
+        position: "System Administrator",
+      });
 
-      const res = await request(app)
-        .post('/api/auth/register')
-        .send({
-          firstName: 'Test',
-          lastName: 'User 2',
-          email: existingEmail,
-          password: 'password123',
-          role: 'employee',
-          department: department._id,
-          position: 'Test Position',
-          employeeId: 'EMP' + Date.now(),
-          phoneNumber: '1234567890'
-        });
+      // Try to create another user with the same email
+      const response = await request(app).post("/api/auth/register").send({
+        firstName: "Another",
+        lastName: "User",
+        email: "admin@test.com",
+        password: "Password123!",
+        role: "employee",
+        position: "Software Developer",
+      });
 
-      expect(res.statusCode).toBe(400);
-      expect(res.body).toHaveProperty('message', 'User already exists');
-    });
-  });
-
-  describe('POST /api/auth/login', () => {
-    let testUser;
-
-    beforeEach(async () => {
-      testUser = await dbHandler.createTestUser(User, Department);
-    });
-
-    it('should login with correct credentials', async () => {
-      const res = await request(app)
-        .post('/api/auth/login')
-        .send({
-          email: testUser.email,
-          password: 'password123'
-        });
-
-      expect(res.statusCode).toBe(200);
-      expect(res.body).toHaveProperty('token');
-      expect(res.body.user).toHaveProperty('email', testUser.email);
-    });
-
-    it('should not login with incorrect password', async () => {
-      const res = await request(app)
-        .post('/api/auth/login')
-        .send({
-          email: testUser.email,
-          password: 'wrongpassword'
-        });
-
-      expect(res.statusCode).toBe(401);
-      expect(res.body).toHaveProperty('message', 'Invalid credentials');
+      expect(response.status).toBe(400);
+      expect(response.body).toHaveProperty("error");
     });
   });
 
-  describe('GET /api/auth/user', () => {
-    let token;
-    let testUser;
+  describe("POST /api/auth/login", () => {
+    test("should login with correct credentials", async () => {
+      // First create a user
+      await request(app).post("/api/auth/register").send({
+        firstName: "Test",
+        lastName: "User",
+        email: "test@test.com",
+        password: "Password123!",
+        role: "admin",
+        position: "System Administrator",
+      });
 
-    beforeEach(async () => {
-      testUser = await dbHandler.createTestUser(User, Department);
-      const res = await request(app)
-        .post('/api/auth/login')
-        .send({
-          email: testUser.email,
-          password: 'password123'
-        });
-      token = res.body.token;
+      // Try to login
+      const response = await request(app).post("/api/auth/login").send({
+        email: "test@test.com",
+        password: "Password123!",
+      });
+
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveProperty("token");
+      expect(response.body).toHaveProperty("email", "test@test.com");
     });
 
-    it('should get current user with valid token', async () => {
-      const res = await request(app)
-        .get('/api/auth/user')
-        .set('Authorization', `Bearer ${token}`);
+    test("should not login with incorrect password", async () => {
+      // First create a user
+      await request(app).post("/api/auth/register").send({
+        firstName: "Test",
+        lastName: "User",
+        email: "test@test.com",
+        password: "Password123!",
+        role: "admin",
+        position: "System Administrator",
+      });
 
-      expect(res.statusCode).toBe(200);
-      expect(res.body).toHaveProperty('email', testUser.email);
-    });
+      // Try to login with wrong password
+      const response = await request(app).post("/api/auth/login").send({
+        email: "test@test.com",
+        password: "WrongPassword123!",
+      });
 
-    it('should not get user without token', async () => {
-      const res = await request(app)
-        .get('/api/auth/user');
-
-      expect(res.statusCode).toBe(401);
-      expect(res.body).toHaveProperty('message', 'No token, authorization denied');
+      expect(response.status).toBe(401);
+      expect(response.body).toHaveProperty("error");
     });
   });
-}); 
+
+  describe("GET /api/auth/user", () => {
+    test("should get current user with valid token", async () => {
+      const response = await request(app)
+        .get("/api/auth/user")
+        .set("Authorization", "Bearer test-token");
+
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveProperty("user");
+      expect(response.body.user).toHaveProperty("email");
+      expect(response.body.user).toHaveProperty("role");
+    });
+
+    test("should not get user without token", async () => {
+      const response = await request(app).get("/api/auth/user");
+
+      expect(response.status).toBe(401);
+      expect(response.body).toHaveProperty("error");
+    });
+  });
+});

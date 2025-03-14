@@ -1,55 +1,62 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const { auth, isManagerOrAdmin, isSelfOrHigherRole } = require('../middleware/auth');
-const Attendance = require('../models/Attendance');
-const User = require('../models/User');
-const moment = require('moment');
+const {
+  auth,
+  isManagerOrAdmin,
+  isSelfOrHigherRole,
+} = require("../middleware/auth");
+const Attendance = require("../models/Attendance");
+const User = require("../models/User");
+const moment = require("moment");
 
 /**
  * @route   POST /api/attendance/clock-in
  * @desc    Clock in
  * @access  Private
  */
-router.post('/clock-in', auth, async (req, res) => {
+router.post("/clock-in", auth, async (req, res) => {
   try {
     // First, close any active sessions for this user
     await Attendance.updateMany(
       {
         user: req.user.id,
-        clockOut: null
+        clockOut: null,
       },
       {
         $set: {
           clockOut: new Date(),
-          updatedAt: new Date()
-        }
-      }
+          updatedAt: new Date(),
+        },
+      },
     );
 
     // Create new attendance record
     const attendance = new Attendance({
       user: req.user.id,
       clockIn: new Date(),
-      breaks: []
+      breaks: [],
     });
 
     await attendance.save();
-    
+
     // Send back the full attendance object
-    const fullAttendance = await attendance.populate('user', 'firstName lastName');
-    
+    const fullAttendance = await attendance.populate(
+      "user",
+      "firstName lastName",
+    );
+
     return res.json({
       clockIn: fullAttendance.clockIn,
       clockOut: fullAttendance.clockOut,
       breaks: fullAttendance.breaks,
       user: {
         id: fullAttendance.user._id,
-        name: `${fullAttendance.user.firstName} ${fullAttendance.user.lastName}`
-      }
+        name: `${fullAttendance.user.firstName} ${fullAttendance.user.lastName}`,
+      },
     });
   } catch (err) {
-    console.error('Clock in error:', err.message);
-    return res.status(500).json({ message: 'Server error during clock in' });
+    console.error("Clock in error:", err.message);
+    return res.status(500).json({ message: "Server error during clock in" });
   }
 });
 
@@ -58,16 +65,18 @@ router.post('/clock-in', auth, async (req, res) => {
  * @desc    Clock out
  * @access  Private
  */
-router.put('/clock-out', auth, async (req, res) => {
+router.put("/clock-out", auth, async (req, res) => {
   try {
     // Find the latest active attendance record
     const attendance = await Attendance.findOne({
       user: req.user.id,
-      clockOut: null
+      clockOut: null,
     }).sort({ clockIn: -1 });
 
     if (!attendance) {
-      return res.status(400).json({ message: 'No active attendance record found' });
+      return res
+        .status(400)
+        .json({ message: "No active attendance record found" });
     }
 
     // End any active breaks
@@ -83,20 +92,23 @@ router.put('/clock-out', auth, async (req, res) => {
     await attendance.save();
 
     // Send back the full attendance object
-    const fullAttendance = await attendance.populate('user', 'firstName lastName');
-    
+    const fullAttendance = await attendance.populate(
+      "user",
+      "firstName lastName",
+    );
+
     return res.json({
       clockIn: fullAttendance.clockIn,
       clockOut: fullAttendance.clockOut,
       breaks: fullAttendance.breaks,
       user: {
         id: fullAttendance.user._id,
-        name: `${fullAttendance.user.firstName} ${fullAttendance.user.lastName}`
-      }
+        name: `${fullAttendance.user.firstName} ${fullAttendance.user.lastName}`,
+      },
     });
   } catch (err) {
-    console.error('Clock out error:', err.message);
-    return res.status(500).json({ message: 'Server error during clock out' });
+    console.error("Clock out error:", err.message);
+    return res.status(500).json({ message: "Server error during clock out" });
   }
 });
 
@@ -105,38 +117,38 @@ router.put('/clock-out', auth, async (req, res) => {
  * @desc    Start break
  * @access  Private
  */
-router.post('/break/start', auth, async (req, res) => {
+router.post("/break/start", auth, async (req, res) => {
   try {
-    const today = moment().startOf('day');
-    const tomorrow = moment(today).add(1, 'days');
-    
+    const today = moment().startOf("day");
+    const tomorrow = moment(today).add(1, "days");
+
     const attendance = await Attendance.findOne({
       user: req.user.id,
       clockIn: {
         $gte: today.toDate(),
-        $lt: tomorrow.toDate()
+        $lt: tomorrow.toDate(),
       },
-      clockOut: null
+      clockOut: null,
     });
 
     if (!attendance) {
-      return res.status(400).json({ message: 'No active attendance found' });
+      return res.status(400).json({ message: "No active attendance found" });
     }
 
     if (attendance.isOnBreak) {
-      return res.status(400).json({ message: 'Already on break' });
+      return res.status(400).json({ message: "Already on break" });
     }
 
     attendance.breaks.push({
-      startTime: new Date()
+      startTime: new Date(),
     });
 
     await attendance.save();
 
     return res.json(attendance);
   } catch (err) {
-    console.error('Start break error:', err.message);
-    return res.status(500).json({ message: 'Server error during break start' });
+    console.error("Start break error:", err.message);
+    return res.status(500).json({ message: "Server error during break start" });
   }
 });
 
@@ -145,26 +157,26 @@ router.post('/break/start', auth, async (req, res) => {
  * @desc    End break
  * @access  Private
  */
-router.put('/break/end', auth, async (req, res) => {
+router.put("/break/end", auth, async (req, res) => {
   try {
-    const today = moment().startOf('day');
-    const tomorrow = moment(today).add(1, 'days');
-    
+    const today = moment().startOf("day");
+    const tomorrow = moment(today).add(1, "days");
+
     const attendance = await Attendance.findOne({
       user: req.user.id,
       clockIn: {
         $gte: today.toDate(),
-        $lt: tomorrow.toDate()
+        $lt: tomorrow.toDate(),
       },
-      clockOut: null
+      clockOut: null,
     });
 
     if (!attendance) {
-      return res.status(400).json({ message: 'No active attendance found' });
+      return res.status(400).json({ message: "No active attendance found" });
     }
 
     if (!attendance.isOnBreak) {
-      return res.status(400).json({ message: 'Not on break' });
+      return res.status(400).json({ message: "Not on break" });
     }
 
     // End the last break
@@ -175,8 +187,8 @@ router.put('/break/end', auth, async (req, res) => {
 
     return res.json(attendance);
   } catch (err) {
-    console.error('End break error:', err.message);
-    return res.status(500).json({ message: 'Server error during break end' });
+    console.error("End break error:", err.message);
+    return res.status(500).json({ message: "Server error during break end" });
   }
 });
 
@@ -185,51 +197,60 @@ router.put('/break/end', auth, async (req, res) => {
  * @desc    Get current attendance status
  * @access  Private
  */
-router.get('/current', auth, async (req, res) => {
+router.get("/current", auth, async (req, res) => {
   try {
     // Get today's date
-    const today = moment().startOf('day');
-    const tomorrow = moment(today).add(1, 'days');
-    
-    console.log(`Getting current status for user ${req.user.id} on ${today.format('YYYY-MM-DD')}`);
-    
+    const today = moment().startOf("day");
+    const tomorrow = moment(today).add(1, "days");
+
+    console.log(
+      `Getting current status for user ${req.user.id} on ${today.format(
+        "YYYY-MM-DD",
+      )}`,
+    );
+
     // Find today's attendance record - get the most recent one
     const attendance = await Attendance.findOne({
       user: req.user.id,
       clockIn: {
         $gte: today.toDate(),
-        $lt: tomorrow.toDate()
-      }
+        $lt: tomorrow.toDate(),
+      },
     }).sort({ clockIn: -1 });
-    
-    console.log('Found attendance record:', attendance ? attendance._id : 'None');
-    
+
+    console.log(
+      "Found attendance record:",
+      attendance ? attendance._id : "None",
+    );
+
     // If no attendance record found for today, check if there's any active record from previous days
     let activeAttendance = attendance;
     if (!activeAttendance || activeAttendance.clockOut) {
       // Look for any active attendance (clocked in but not out) from previous days
       const activeFromPrevious = await Attendance.findOne({
         user: req.user.id,
-        clockOut: null
+        clockOut: null,
       }).sort({ clockIn: -1 });
-      
+
       if (activeFromPrevious) {
-        console.log(`Found active attendance from previous day: ${activeFromPrevious._id}`);
+        console.log(
+          `Found active attendance from previous day: ${activeFromPrevious._id}`,
+        );
         activeAttendance = activeFromPrevious;
       }
     }
-    
+
     // Also get any active breaks
-    const activeBreak = activeAttendance?.breaks?.find(b => !b.endTime);
-    
+    const activeBreak = activeAttendance?.breaks?.find((b) => !b.endTime);
+
     // Check if there's an active session (clocked in but not clocked out)
     const isActive = activeAttendance && !activeAttendance.clockOut;
-    
+
     console.log(`User is clocked in: ${isActive}`);
     if (isActive) {
       console.log(`Clock in time: ${activeAttendance.clockIn}`);
     }
-    
+
     const status = {
       isClockedIn: isActive,
       clockInTime: activeAttendance?.clockIn || null,
@@ -242,14 +263,16 @@ router.get('/current', auth, async (req, res) => {
       // Include total breaks information
       totalBreaks: activeAttendance?.breaks?.length || 0,
       // Include any additional useful information
-      userId: req.user.id
+      userId: req.user.id,
     };
-    
-    console.log('Sending status to client:', JSON.stringify(status));
+
+    console.log("Sending status to client:", JSON.stringify(status));
     return res.json(status);
   } catch (err) {
-    console.error('Error getting current status:', err.message);
-    return res.status(500).json({ message: 'Server error getting attendance status' });
+    console.error("Error getting current status:", err.message);
+    return res
+      .status(500)
+      .json({ message: "Server error getting attendance status" });
   }
 });
 
@@ -258,25 +281,26 @@ router.get('/current', auth, async (req, res) => {
  * @desc    Get attendance history
  * @access  Private
  */
-router.get('/history', auth, async (req, res) => {
+router.get("/history", auth, async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
     const query = { user: req.user.id };
-    
+
     if (startDate && endDate) {
       query.clockIn = {
-        $gte: moment(startDate).startOf('day').toDate(),
-        $lte: moment(endDate).endOf('day').toDate()
+        $gte: moment(startDate).startOf("day").toDate(),
+        $lte: moment(endDate).endOf("day").toDate(),
       };
     }
 
-    const attendance = await Attendance.find(query)
-      .sort({ clockIn: -1 });
+    const attendance = await Attendance.find(query).sort({ clockIn: -1 });
 
     return res.json(attendance);
   } catch (err) {
-    console.error('Get history error:', err.message);
-    return res.status(500).json({ message: 'Server error getting attendance history' });
+    console.error("Get history error:", err.message);
+    return res
+      .status(500)
+      .json({ message: "Server error getting attendance history" });
   }
 });
 
@@ -285,25 +309,26 @@ router.get('/history', auth, async (req, res) => {
  * @desc    Get user attendance (admin/manager only)
  * @access  Private (Admin/Manager)
  */
-router.get('/user/:userId', [auth, isManagerOrAdmin], async (req, res) => {
+router.get("/user/:userId", [auth, isManagerOrAdmin], async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
     const query = { user: req.params.userId };
-    
+
     if (startDate && endDate) {
       query.clockIn = {
-        $gte: moment(startDate).startOf('day').toDate(),
-        $lte: moment(endDate).endOf('day').toDate()
+        $gte: moment(startDate).startOf("day").toDate(),
+        $lte: moment(endDate).endOf("day").toDate(),
       };
     }
 
-    const attendance = await Attendance.find(query)
-      .sort({ clockIn: -1 });
+    const attendance = await Attendance.find(query).sort({ clockIn: -1 });
 
     return res.json(attendance);
   } catch (err) {
-    console.error('Get user attendance error:', err.message);
-    return res.status(500).json({ message: 'Server error getting user attendance' });
+    console.error("Get user attendance error:", err.message);
+    return res
+      .status(500)
+      .json({ message: "Server error getting user attendance" });
   }
 });
 
@@ -312,43 +337,38 @@ router.get('/user/:userId', [auth, isManagerOrAdmin], async (req, res) => {
  * @desc    Create manual attendance entry
  * @access  Private (Admin/Manager)
  */
-router.post('/manual', auth, isManagerOrAdmin, async (req, res) => {
+router.post("/manual", auth, isManagerOrAdmin, async (req, res) => {
   try {
-    const {
-      userId,
-      date,
-      clockInTime,
-      clockOutTime,
-      breaks,
-      status,
-      notes
-    } = req.body;
-    
+    const { userId, date, clockInTime, clockOutTime, breaks, status, notes } =
+      req.body;
+
     // Check if user exists
     const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ message: "User not found" });
     }
-    
+
     // Check if attendance already exists for that day
     const attendanceDate = new Date(date);
     attendanceDate.setHours(0, 0, 0, 0);
-    
+
     const nextDay = new Date(attendanceDate);
     nextDay.setDate(nextDay.getDate() + 1);
-    
+
     const existingAttendance = await Attendance.findOne({
       user: userId,
       date: {
         $gte: attendanceDate,
-        $lt: nextDay
-      }
+        $lt: nextDay,
+      },
     });
-    
+
     if (existingAttendance) {
-      return res.status(400).json({ message: 'Attendance record already exists for this date' });
+      return res
+        .status(400)
+        .json({ message: "Attendance record already exists for this date" });
     }
-    
+
     // Create new attendance record
     const attendance = new Attendance({
       user: userId,
@@ -356,18 +376,18 @@ router.post('/manual', auth, isManagerOrAdmin, async (req, res) => {
       clockInTime: new Date(clockInTime),
       clockOutTime: clockOutTime ? new Date(clockOutTime) : null,
       breaks: breaks || [],
-      status: status || 'present',
+      status: status || "present",
       notes,
       isManualEntry: true,
-      modifiedBy: req.user.id
+      modifiedBy: req.user.id,
     });
-    
+
     await attendance.save();
-    
+
     return res.json(attendance);
   } catch (err) {
-    console.error('Manual attendance entry error:', err);
-    return res.status(500).json({ message: 'Server error' });
+    console.error("Manual attendance entry error:", err);
+    return res.status(500).json({ message: "Server error" });
   }
 });
 
@@ -376,7 +396,7 @@ router.post('/manual', auth, isManagerOrAdmin, async (req, res) => {
  * @desc    Update attendance record
  * @access  Private (Admin/Manager)
  */
-router.put('/:id', auth, isManagerOrAdmin, async (req, res) => {
+router.put("/:id", auth, isManagerOrAdmin, async (req, res) => {
   try {
     const {
       clockInTime,
@@ -386,16 +406,16 @@ router.put('/:id', auth, isManagerOrAdmin, async (req, res) => {
       notes,
       totalWorkHours,
       totalBreakHours,
-      overtime
+      overtime,
     } = req.body;
-    
+
     // Find attendance record
     let attendance = await Attendance.findById(req.params.id);
-    
+
     if (!attendance) {
-      return res.status(404).json({ message: 'Attendance record not found' });
+      return res.status(404).json({ message: "Attendance record not found" });
     }
-    
+
     // Update fields
     if (clockInTime) attendance.clockInTime = new Date(clockInTime);
     if (clockOutTime) attendance.clockOutTime = new Date(clockOutTime);
@@ -405,16 +425,16 @@ router.put('/:id', auth, isManagerOrAdmin, async (req, res) => {
     if (totalWorkHours) attendance.totalWorkHours = totalWorkHours;
     if (totalBreakHours) attendance.totalBreakHours = totalBreakHours;
     if (overtime) attendance.overtime = overtime;
-    
+
     attendance.isManualEntry = true;
     attendance.modifiedBy = req.user.id;
-    
+
     await attendance.save();
-    
+
     return res.json(attendance);
   } catch (err) {
-    console.error('Update attendance error:', err);
-    return res.status(500).json({ message: 'Server error' });
+    console.error("Update attendance error:", err);
+    return res.status(500).json({ message: "Server error" });
   }
 });
 
@@ -423,21 +443,21 @@ router.put('/:id', auth, isManagerOrAdmin, async (req, res) => {
  * @desc    Delete attendance record
  * @access  Private (Admin only)
  */
-router.delete('/:id', auth, isManagerOrAdmin, async (req, res) => {
+router.delete("/:id", auth, isManagerOrAdmin, async (req, res) => {
   try {
     // Find attendance record
     const attendance = await Attendance.findById(req.params.id);
-    
+
     if (!attendance) {
-      return res.status(404).json({ message: 'Attendance record not found' });
+      return res.status(404).json({ message: "Attendance record not found" });
     }
-    
+
     await Attendance.findByIdAndRemove(req.params.id);
-    
-    return res.json({ message: 'Attendance record removed' });
+
+    return res.json({ message: "Attendance record removed" });
   } catch (err) {
-    console.error('Delete attendance error:', err);
-    return res.status(500).json({ message: 'Server error' });
+    console.error("Delete attendance error:", err);
+    return res.status(500).json({ message: "Server error" });
   }
 });
 
@@ -446,41 +466,43 @@ router.delete('/:id', auth, isManagerOrAdmin, async (req, res) => {
  * @desc    Record an auto clock-out
  * @access  Private
  */
-router.post('/auto-clockout', auth, async (req, res) => {
+router.post("/auto-clockout", auth, async (req, res) => {
   try {
     const { date, clockIn, clockOut, notes } = req.body;
-    
+
     // Find the attendance record
     const attendance = await Attendance.findOne({
       user: req.user.id,
-      date: moment(date).startOf('day').toDate()
+      date: moment(date).startOf("day").toDate(),
     });
-    
+
     if (!attendance) {
       // Create a new attendance record
       const newAttendance = new Attendance({
         user: req.user.id,
-        date: moment(date).startOf('day').toDate(),
+        date: moment(date).startOf("day").toDate(),
         clockIn: clockIn,
         clockOut: clockOut,
-        status: 'Auto-completed',
-        notes: notes || 'System auto clock-out at end of day'
+        status: "Auto-completed",
+        notes: notes || "System auto clock-out at end of day",
       });
-      
+
       await newAttendance.save();
       return res.status(201).json(newAttendance);
     }
-    
+
     // Update the existing attendance record
     attendance.clockOut = clockOut;
-    attendance.status = 'Auto-completed';
-    attendance.notes = notes || 'System auto clock-out at end of day';
-    
+    attendance.status = "Auto-completed";
+    attendance.notes = notes || "System auto clock-out at end of day";
+
     await attendance.save();
     return res.json(attendance);
   } catch (err) {
-    console.error('Error recording auto clock-out:', err.message);
-    return res.status(500).json({ message: 'Server error while recording auto clock-out' });
+    console.error("Error recording auto clock-out:", err.message);
+    return res
+      .status(500)
+      .json({ message: "Server error while recording auto clock-out" });
   }
 });
 

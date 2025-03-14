@@ -7,14 +7,17 @@
 We recently addressed several critical authentication security issues:
 
 1. **Fixed Token Header Format**
+
    - Issue: The server expected the token in the `x-auth-token` header, but the client was sending it as `Authorization: Bearer ${token}`
    - Fix: Updated the axios configuration in `client/src/utils/axios.js` to use the correct header format
 
 2. **Corrected JWT Payload Structure**
+
    - Issue: The auth middleware was looking for `userId` in the token payload, but the login route was using `id`
    - Fix: Updated the auth.js route to use `userId` in the payload to ensure consistency
 
 3. **Rotated JWT Secret**
+
    - Issue: The JWT secret was exposed in the Git repository
    - Fix: Generated a new secure random string and updated the JWT_SECRET in the .env file
 
@@ -47,10 +50,10 @@ This document outlines the authentication system implemented in the Timesheet Sy
 
 ```javascript
 // Before
-config.headers['Authorization'] = `Bearer ${token}`;
+config.headers["Authorization"] = `Bearer ${token}`;
 
 // After
-config.headers['x-auth-token'] = token;
+config.headers["x-auth-token"] = token;
 ```
 
 ### 2. JWT Payload Structure
@@ -63,13 +66,13 @@ config.headers['x-auth-token'] = token;
 // Before
 const payload = {
   id: user.id,
-  role: user.role
+  role: user.role,
 };
 
 // After
 const payload = {
   userId: user.id,
-  role: user.role
+  role: user.role,
 };
 ```
 
@@ -78,6 +81,7 @@ const payload = {
 **Issue**: The auth middleware needed improvements to properly handle role-based access control.
 
 **Fix**: Updated the auth middleware to:
+
 - Properly check admin and manager roles
 - Add role flags to req.user object
 - Improve error messages for role-based access control
@@ -86,26 +90,28 @@ const payload = {
 ```javascript
 const auth = async (req, res, next) => {
   try {
-    const token = req.header('x-auth-token');
+    const token = req.header("x-auth-token");
     if (!token) {
-      return res.status(401).json({ message: 'No token, authorization denied' });
+      return res
+        .status(401)
+        .json({ message: "No token, authorization denied" });
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.userId).select('-password');
-    
+    const user = await User.findById(decoded.userId).select("-password");
+
     if (!user) {
-      return res.status(401).json({ message: 'User not found' });
+      return res.status(401).json({ message: "User not found" });
     }
 
     // Set user and role information
     req.user = user;
-    req.user.isAdmin = user.role === 'admin';
-    req.user.isManager = user.role === 'manager';
-    
+    req.user.isAdmin = user.role === "admin";
+    req.user.isManager = user.role === "manager";
+
     next();
   } catch (err) {
-    res.status(401).json({ message: 'Token is not valid' });
+    res.status(401).json({ message: "Token is not valid" });
   }
 };
 ```
@@ -125,6 +131,7 @@ The system implements a role-based access control model with three primary roles
 The following middleware functions enforce role-based access control:
 
 1. **isManagerOrAdmin**: Restricts access to managers and administrators only
+
    - Used for creating/editing schedules, managing departments, etc.
 
 2. **isSelfOrHigherRole**: Allows users to access their own data or managers/admins to access any user's data
@@ -149,7 +156,10 @@ The `AuthContext.js` file manages authentication state and provides login/logout
 ```javascript
 const login = async (email, password) => {
   try {
-    const response = await axiosInstance.post('/auth/login', { email, password });
+    const response = await axiosInstance.post("/auth/login", {
+      email,
+      password,
+    });
     const { token, user } = response.data;
 
     // Set auth state
@@ -160,15 +170,15 @@ const login = async (email, password) => {
     });
 
     // Set local storage
-    localStorage.setItem('token', token);
-    localStorage.setItem('user', JSON.stringify(user));
+    localStorage.setItem("token", token);
+    localStorage.setItem("user", JSON.stringify(user));
 
     // Set axios headers
-    axiosInstance.defaults.headers.common['x-auth-token'] = token;
+    axiosInstance.defaults.headers.common["x-auth-token"] = token;
 
     return true;
   } catch (err) {
-    console.error('Login error:', err.response?.data?.message || err.message);
+    console.error("Login error:", err.response?.data?.message || err.message);
     return false;
   }
 };
@@ -182,15 +192,15 @@ The `axios.js` file configures the axios instance to include the authentication 
 // Add request interceptor to add auth token
 instance.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem("token");
     if (token) {
-      config.headers['x-auth-token'] = token;
+      config.headers["x-auth-token"] = token;
     }
     return config;
   },
   (error) => {
     return Promise.reject(error);
-  }
+  },
 );
 ```
 

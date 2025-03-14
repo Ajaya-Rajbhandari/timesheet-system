@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   Button,
   Dialog,
@@ -9,13 +9,13 @@ import {
   ListItem,
   ListItemIcon,
   ListItemText,
-} from '@mui/material';
+} from "@mui/material";
 import {
   SwapHoriz as SwapHorizIcon,
   History as HistoryIcon,
-} from '@mui/icons-material';
-import ShiftSwap from './ShiftSwap';
-import ShiftSwapHistory from './ShiftSwapHistory';
+} from "@mui/icons-material";
+import ShiftSwap from "./ShiftSwap";
+import ShiftSwapHistory from "./ShiftSwapHistory";
 
 const EmployeeShiftSwapButton = ({ schedule }) => {
   const [optionsOpen, setOptionsOpen] = useState(false);
@@ -29,9 +29,9 @@ const EmployeeShiftSwapButton = ({ schedule }) => {
 
   return (
     <>
-      <Button 
-        variant="outlined" 
-        color="primary" 
+      <Button
+        variant="outlined"
+        color="primary"
         size="small"
         onClick={() => setOptionsOpen(true)}
         startIcon={<SwapHorizIcon />}
@@ -54,10 +54,13 @@ const EmployeeShiftSwapButton = ({ schedule }) => {
             </ListItemIcon>
             <ListItemText primary="Request Shift Swap" />
           </ListItem>
-          <ListItem button onClick={() => {
-            setOptionsOpen(false);
-            setShiftSwapHistoryOpen(true);
-          }}>
+          <ListItem
+            button
+            onClick={() => {
+              setOptionsOpen(false);
+              setShiftSwapHistoryOpen(true);
+            }}
+          >
             <ListItemIcon>
               <HistoryIcon />
             </ListItemIcon>
@@ -95,4 +98,4 @@ const EmployeeShiftSwapButton = ({ schedule }) => {
   );
 };
 
-export default EmployeeShiftSwapButton; 
+export default EmployeeShiftSwapButton;

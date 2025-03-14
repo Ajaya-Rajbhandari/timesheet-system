@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   Box,
   Card,
@@ -16,54 +16,59 @@ import {
   Tab,
   Alert,
   CircularProgress,
-  Divider
-} from '@mui/material';
+  Divider,
+} from "@mui/material";
 import {
   Timeline,
   TimelineItem,
   TimelineSeparator,
   TimelineConnector,
   TimelineContent,
-  TimelineDot
-} from '@mui/lab';
+  TimelineDot,
+} from "@mui/lab";
 import {
   SwapHoriz as SwapIcon,
   Check as ApproveIcon,
   Close as RejectIcon,
   Schedule as PendingIcon,
-  Close as CloseIcon
-} from '@mui/icons-material';
-import { useAuth } from '../contexts/AuthContext';
-import axios from '../utils/axios';
-import { getMyShiftSwaps, respondToShiftSwap } from '../services/shiftSwapService';
+  Close as CloseIcon,
+} from "@mui/icons-material";
+import { useAuth } from "../contexts/AuthContext";
+import axios from "../utils/axios";
+import {
+  getMyShiftSwaps,
+  respondToShiftSwap,
+} from "../services/shiftSwapService";
 
 const statusColors = {
-  pending: 'warning',
-  approved: 'success',
-  rejected: 'error',
-  cancelled: 'default'
+  pending: "warning",
+  approved: "success",
+  rejected: "error",
+  cancelled: "default",
 };
 
 const statusIcons = {
   pending: <PendingIcon />,
   approved: <ApproveIcon />,
   rejected: <RejectIcon />,
-  cancelled: <CloseIcon />
+  cancelled: <CloseIcon />,
 };
 
 const SwapResponseDialog = ({ open, onClose, swap, onRespond }) => {
-  const [notes, setNotes] = useState('');
+  const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
 
   const handleResponse = async (status) => {
     setLoading(true);
-    setError('');
+    setError("");
     try {
       await onRespond(swap._id, status, notes);
       onClose();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to respond to swap request');
+      setError(
+        err.response?.data?.message || "Failed to respond to swap request",
+      );
     } finally {
       setLoading(false);
     }
@@ -75,17 +80,20 @@ const SwapResponseDialog = ({ open, onClose, swap, onRespond }) => {
       <DialogContent>
         <Box sx={{ mb: 2 }}>
           <Typography variant="subtitle1" gutterBottom>
-            From: {swap?.requestingUser.firstName} {swap?.requestingUser.lastName}
+            From: {swap?.requestingUser.firstName}{" "}
+            {swap?.requestingUser.lastName}
           </Typography>
           <Typography variant="body2" gutterBottom>
             Requesting to swap:
           </Typography>
           <Typography variant="body2" color="textSecondary" gutterBottom>
-            Their shift: {new Date(swap?.requestingSchedule.startDate).toLocaleDateString()} - 
-            {new Date(swap?.requestingSchedule.endDate).toLocaleDateString()}
+            Their shift:{" "}
+            {new Date(swap?.requestingSchedule.startDate).toLocaleDateString()}{" "}
+            -{new Date(swap?.requestingSchedule.endDate).toLocaleDateString()}
           </Typography>
           <Typography variant="body2" color="textSecondary" gutterBottom>
-            Your shift: {new Date(swap?.targetSchedule.startDate).toLocaleDateString()} - 
+            Your shift:{" "}
+            {new Date(swap?.targetSchedule.startDate).toLocaleDateString()} -
             {new Date(swap?.targetSchedule.endDate).toLocaleDateString()}
           </Typography>
           <Typography variant="body2" sx={{ mt: 1 }}>
@@ -114,14 +122,14 @@ const SwapResponseDialog = ({ open, onClose, swap, onRespond }) => {
           Cancel
         </Button>
         <Button
-          onClick={() => handleResponse('rejected')}
+          onClick={() => handleResponse("rejected")}
           color="error"
           disabled={loading}
         >
           Reject
         </Button>
         <Button
-          onClick={() => handleResponse('approved')}
+          onClick={() => handleResponse("approved")}
           color="success"
           variant="contained"
           disabled={loading}
@@ -144,9 +152,7 @@ const SwapHistoryTimeline = ({ swap }) => {
           <TimelineConnector />
         </TimelineSeparator>
         <TimelineContent>
-          <Typography variant="subtitle2">
-            Request Created
-          </Typography>
+          <Typography variant="subtitle2">Request Created</Typography>
           <Typography variant="body2" color="textSecondary">
             {new Date(swap.requestDate).toLocaleString()}
           </Typography>
@@ -163,7 +169,8 @@ const SwapHistoryTimeline = ({ swap }) => {
           </TimelineSeparator>
           <TimelineContent>
             <Typography variant="subtitle2">
-              {swap.status === 'approved' ? 'Approved' : 'Rejected'} by {swap.targetUser.firstName}
+              {swap.status === "approved" ? "Approved" : "Rejected"} by{" "}
+              {swap.targetUser.firstName}
             </Typography>
             <Typography variant="body2" color="textSecondary">
               {new Date(swap.responseDate).toLocaleString()}
@@ -180,13 +187,15 @@ const SwapHistoryTimeline = ({ swap }) => {
       {swap.managerApproval?.approvalDate && (
         <TimelineItem>
           <TimelineSeparator>
-            <TimelineDot color={swap.managerApproval.approved ? 'success' : 'error'}>
+            <TimelineDot
+              color={swap.managerApproval.approved ? "success" : "error"}
+            >
               {swap.managerApproval.approved ? <ApproveIcon /> : <RejectIcon />}
             </TimelineDot>
           </TimelineSeparator>
           <TimelineContent>
             <Typography variant="subtitle2">
-              Manager {swap.managerApproval.approved ? 'Approved' : 'Rejected'}
+              Manager {swap.managerApproval.approved ? "Approved" : "Rejected"}
             </Typography>
             <Typography variant="body2" color="textSecondary">
               {new Date(swap.managerApproval.approvalDate).toLocaleString()}
@@ -207,22 +216,45 @@ const ShiftSwapHistory = () => {
   const { user } = useAuth();
   const [swaps, setSwaps] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [tabValue, setTabValue] = useState(0);
   const [selectedSwap, setSelectedSwap] = useState(null);
   const [responseDialogOpen, setResponseDialogOpen] = useState(false);
 
   useEffect(() => {
-    fetchSwaps();
-  }, []);
+    if (user && user._id) {
+      fetchSwaps();
+    }
+  }, [user]);
 
   const fetchSwaps = async () => {
+    if (!user || !user._id) {
+      setError("User information is not available");
+      setLoading(false);
+      return;
+    }
+
     try {
       const data = await getMyShiftSwaps();
+      console.log("Fetched shift swaps:", data);
+
+      // Debug incoming swaps
+      const incomingSwaps = data.filter(
+        (swap) => swap.targetUser && swap.targetUser._id === user._id,
+      );
+      console.log("Current user ID:", user._id);
+      console.log("Incoming swaps:", incomingSwaps);
+
+      if (incomingSwaps.length === 0 && data.length > 0) {
+        // Check if there's a data structure issue
+        console.log("Sample swap data structure:", data[0]);
+        console.log("Target user in first swap:", data[0].targetUser);
+      }
+
       setSwaps(data);
     } catch (err) {
-      console.error('Error fetching shift swaps:', err);
-      setError('Failed to load shift swap history');
+      console.error("Error fetching shift swaps:", err);
+      setError("Failed to load shift swap history");
     } finally {
       setLoading(false);
     }
@@ -238,13 +270,21 @@ const ShiftSwapHistory = () => {
   };
 
   const filterSwaps = (type) => {
+    if (!user || !user._id || !swaps.length) {
+      return [];
+    }
+
     switch (type) {
       case 0: // All
         return swaps;
       case 1: // Outgoing
-        return swaps.filter(swap => swap.requestingUser._id === user._id);
+        return swaps.filter(
+          (swap) => swap.requestingUser && swap.requestingUser._id === user._id,
+        );
       case 2: // Incoming
-        return swaps.filter(swap => swap.targetUser._id === user._id);
+        return swaps.filter(
+          (swap) => swap.targetUser && swap.targetUser._id === user._id,
+        );
       default:
         return swaps;
     }
@@ -252,7 +292,12 @@ const ShiftSwapHistory = () => {
 
   if (loading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
+      <Box
+        display="flex"
+        justifyContent="center"
+        alignItems="center"
+        minHeight="200px"
+      >
         <CircularProgress />
       </Box>
     );
@@ -267,7 +312,7 @@ const ShiftSwapHistory = () => {
   }
 
   return (
-    <Box sx={{ width: '100%' }}>
+    <Box sx={{ width: "100%" }}>
       <Tabs
         value={tabValue}
         onChange={(e, newValue) => setTabValue(newValue)}
@@ -283,10 +328,13 @@ const ShiftSwapHistory = () => {
           <Grid item xs={12} key={swap._id}>
             <Card>
               <CardContent>
-                <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                  <Typography variant="h6">
-                    Shift Swap Request
-                  </Typography>
+                <Box
+                  display="flex"
+                  justifyContent="space-between"
+                  alignItems="center"
+                  mb={2}
+                >
+                  <Typography variant="h6">Shift Swap Request</Typography>
                   <Chip
                     label={swap.status.toUpperCase()}
                     color={statusColors[swap.status]}
@@ -296,7 +344,8 @@ const ShiftSwapHistory = () => {
                 <Grid container spacing={2}>
                   <Grid item xs={12} md={6}>
                     <Typography variant="subtitle2">
-                      From: {swap.requestingUser.firstName} {swap.requestingUser.lastName}
+                      From: {swap.requestingUser.firstName}{" "}
+                      {swap.requestingUser.lastName}
                     </Typography>
                     <Typography variant="subtitle2">
                       To: {swap.targetUser.firstName} {swap.targetUser.lastName}
@@ -304,34 +353,47 @@ const ShiftSwapHistory = () => {
                   </Grid>
                   <Grid item xs={12} md={6}>
                     <Typography variant="body2">
-                      Requesting Schedule: {new Date(swap.requestingSchedule.startDate).toLocaleDateString()} - 
-                      {new Date(swap.requestingSchedule.endDate).toLocaleDateString()}
+                      Requesting Schedule:{" "}
+                      {new Date(
+                        swap.requestingSchedule.startDate,
+                      ).toLocaleDateString()}{" "}
+                      -
+                      {new Date(
+                        swap.requestingSchedule.endDate,
+                      ).toLocaleDateString()}
                     </Typography>
                     <Typography variant="body2">
-                      Target Schedule: {new Date(swap.targetSchedule.startDate).toLocaleDateString()} - 
-                      {new Date(swap.targetSchedule.endDate).toLocaleDateString()}
+                      Target Schedule:{" "}
+                      {new Date(
+                        swap.targetSchedule.startDate,
+                      ).toLocaleDateString()}{" "}
+                      -
+                      {new Date(
+                        swap.targetSchedule.endDate,
+                      ).toLocaleDateString()}
                     </Typography>
                   </Grid>
                 </Grid>
 
                 <Divider sx={{ my: 2 }} />
-                
+
                 <SwapHistoryTimeline swap={swap} />
 
-                {swap.targetUser._id === user._id && swap.status === 'pending' && (
-                  <Box display="flex" justifyContent="flex-end" mt={2}>
-                    <Button
-                      variant="contained"
-                      color="primary"
-                      onClick={() => {
-                        setSelectedSwap(swap);
-                        setResponseDialogOpen(true);
-                      }}
-                    >
-                      Respond to Request
-                    </Button>
-                  </Box>
-                )}
+                {swap.targetUser._id === user._id &&
+                  swap.status === "pending" && (
+                    <Box display="flex" justifyContent="flex-end" mt={2}>
+                      <Button
+                        variant="contained"
+                        color="primary"
+                        onClick={() => {
+                          setSelectedSwap(swap);
+                          setResponseDialogOpen(true);
+                        }}
+                      >
+                        Respond to Request
+                      </Button>
+                    </Box>
+                  )}
               </CardContent>
             </Card>
           </Grid>
@@ -353,4 +415,4 @@ const ShiftSwapHistory = () => {
   );
 };
 
-export default ShiftSwapHistory; 
+export default ShiftSwapHistory;

@@ -1,5 +1,5 @@
-import api from './api';
-import moment from 'moment';
+import api from "./api";
+import moment from "moment";
 
 /**
  * Clock in the current user
@@ -9,18 +9,18 @@ export const clockIn = async () => {
   try {
     // First get current status to ensure we have latest state
     const currentStatus = await getCurrentStatus();
-    
+
     if (currentStatus.isClockedIn) {
       // If already clocked in, force a clock out first
       await clockOut();
     }
-    
-    const response = await api.post('/attendance/clock-in');
+
+    const response = await api.post("/attendance/clock-in");
     return response.data;
   } catch (error) {
     // Enhance error message
     if (error.response?.status === 401) {
-      throw new Error('Your session has expired. Please log in again.');
+      throw new Error("Your session has expired. Please log in again.");
     }
     throw error;
   }
@@ -32,11 +32,11 @@ export const clockIn = async () => {
  */
 export const clockOut = async () => {
   try {
-    const response = await api.put('/attendance/clock-out');
+    const response = await api.put("/attendance/clock-out");
     return response.data;
   } catch (error) {
     if (error.response?.status === 401) {
-      throw new Error('Your session has expired. Please log in again.');
+      throw new Error("Your session has expired. Please log in again.");
     }
     throw error;
   }
@@ -48,11 +48,11 @@ export const clockOut = async () => {
  */
 export const startBreak = async () => {
   try {
-    const response = await api.post('/attendance/break/start');
+    const response = await api.post("/attendance/break/start");
     return response.data;
   } catch (error) {
     if (error.response?.status === 401) {
-      throw new Error('Your session has expired. Please log in again.');
+      throw new Error("Your session has expired. Please log in again.");
     }
     throw error;
   }
@@ -64,11 +64,11 @@ export const startBreak = async () => {
  */
 export const endBreak = async () => {
   try {
-    const response = await api.put('/attendance/break/end');
+    const response = await api.put("/attendance/break/end");
     return response.data;
   } catch (error) {
     if (error.response?.status === 401) {
-      throw new Error('Your session has expired. Please log in again.');
+      throw new Error("Your session has expired. Please log in again.");
     }
     throw error;
   }
@@ -80,16 +80,16 @@ export const endBreak = async () => {
  */
 export const getCurrentStatus = async () => {
   try {
-    console.log('Fetching current attendance status from server');
-    const response = await api.get('/attendance/current');
-    console.log('Server response:', JSON.stringify(response.data));
-    
+    console.log("Fetching current attendance status from server");
+    const response = await api.get("/attendance/current");
+    console.log("Server response:", JSON.stringify(response.data));
+
     // Ensure we have a valid response with expected properties
     if (!response.data) {
-      console.error('Empty response data from server');
-      throw new Error('Empty response from server');
+      console.error("Empty response data from server");
+      throw new Error("Empty response from server");
     }
-    
+
     // Ensure the response has the expected properties
     const status = {
       isClockedIn: !!response.data.isClockedIn,
@@ -100,15 +100,15 @@ export const getCurrentStatus = async () => {
       attendanceId: response.data.attendanceId,
       totalBreaks: response.data.totalBreaks || 0,
       error: null,
-      isLoading: false
+      isLoading: false,
     };
-    
-    console.log('Formatted status:', JSON.stringify(status));
+
+    console.log("Formatted status:", JSON.stringify(status));
     return status;
   } catch (error) {
-    console.error('Error getting current status:', error);
+    console.error("Error getting current status:", error);
     if (error.response?.status === 401) {
-      throw new Error('Your session has expired. Please log in again.');
+      throw new Error("Your session has expired. Please log in again.");
     }
     throw error;
   }
@@ -122,13 +122,13 @@ export const getCurrentStatus = async () => {
  */
 export const getAttendanceHistory = async (startDate, endDate) => {
   try {
-    const response = await api.get('/attendance/history', {
-      params: { startDate, endDate }
+    const response = await api.get("/attendance/history", {
+      params: { startDate, endDate },
     });
     return response.data;
   } catch (error) {
     if (error.response?.status === 401) {
-      throw new Error('Your session has expired. Please log in again.');
+      throw new Error("Your session has expired. Please log in again.");
     }
     throw error;
   }
@@ -144,12 +144,12 @@ export const getAttendanceHistory = async (startDate, endDate) => {
 export const getUserAttendance = async (userId, startDate, endDate) => {
   try {
     const response = await api.get(`/attendance/user/${userId}`, {
-      params: { startDate, endDate }
+      params: { startDate, endDate },
     });
     return response.data;
   } catch (error) {
     if (error.response?.status === 401) {
-      throw new Error('Your session has expired. Please log in again.');
+      throw new Error("Your session has expired. Please log in again.");
     }
     throw error;
   }
@@ -162,11 +162,11 @@ export const getUserAttendance = async (userId, startDate, endDate) => {
  */
 export const createManualAttendance = async (data) => {
   try {
-    const response = await api.post('/attendance/manual', data);
+    const response = await api.post("/attendance/manual", data);
     return response.data;
   } catch (error) {
     if (error.response?.status === 401) {
-      throw new Error('Your session has expired. Please log in again.');
+      throw new Error("Your session has expired. Please log in again.");
     }
     throw error;
   }
@@ -184,7 +184,7 @@ export const updateAttendance = async (id, data) => {
     return response.data;
   } catch (error) {
     if (error.response?.status === 401) {
-      throw new Error('Your session has expired. Please log in again.');
+      throw new Error("Your session has expired. Please log in again.");
     }
     throw error;
   }
@@ -201,7 +201,7 @@ export const deleteAttendance = async (id) => {
     return response.data;
   } catch (error) {
     if (error.response?.status === 401) {
-      throw new Error('Your session has expired. Please log in again.');
+      throw new Error("Your session has expired. Please log in again.");
     }
     throw error;
   }
@@ -214,11 +214,11 @@ export const deleteAttendance = async (id) => {
  */
 export const recordAutoClockOut = async (data) => {
   try {
-    const response = await api.post('/attendance/auto-clockout', data);
+    const response = await api.post("/attendance/auto-clockout", data);
     return response.data;
   } catch (error) {
     if (error.response?.status === 401) {
-      throw new Error('Your session has expired. Please log in again.');
+      throw new Error("Your session has expired. Please log in again.");
     }
     throw error;
   }

@@ -156,7 +156,14 @@
 <a name='L91'></a><a href='#L91'>91</a>
 <a name='L92'></a><a href='#L92'>92</a>
 <a name='L93'></a><a href='#L93'>93</a>
-<a name='L94'></a><a href='#L94'>94</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
+<a name='L94'></a><a href='#L94'>94</a>
+<a name='L95'></a><a href='#L95'>95</a>
+<a name='L96'></a><a href='#L96'>96</a>
+<a name='L97'></a><a href='#L97'>97</a>
+<a name='L98'></a><a href='#L98'>98</a>
+<a name='L99'></a><a href='#L99'>99</a>
+<a name='L100'></a><a href='#L100'>100</a>
+<a name='L101'></a><a href='#L101'>101</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -175,7 +182,15 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -248,80 +263,87 @@
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">const mongoose = require('mongoose');
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">const mongoose = require("mongoose");
 &nbsp;
-const commentSchema = new mongoose.Schema({
-  user: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
-  },
-  text: {
-    type: String,
-    required: true,
-    trim: true
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now
-  }
-}, { _id: false });
-&nbsp;
-const TimeOffSchema = new mongoose.Schema({
-  user: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
-  },
-  type: {
-    type: String,
-    enum: ['vacation', 'sick', 'personal', 'other'],
-    required: true
-  },
-  startDate: {
-    type: Date,
-    required: true
-  },
-  endDate: {
-    type: Date,
-    required: true
-  },
-  reason: {
-    type: String,
-    required: true,
-    trim: true
-  },
-  status: {
-    type: String,
-    enum: ['pending', 'approved', 'rejected', 'cancelled'],
-    default: 'pending'
-  },
-  approver: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
-  },
-  approvedAt: {
-    type: Date
-  },
-  comments: [commentSchema],
-  attachments: [{
-    name: String,
-    url: String,
-    type: String,
-    uploadedAt: {
+const commentSchema = new mongoose.Schema(
+  {
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    text: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    createdAt: {
       type: Date,
-      default: Date.now
-    }
-  }],
-  department: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Department',
-    required: true
+      default: Date.now,
+    },
+  },
+  { _id: false }
+);
+&nbsp;
+const TimeOffSchema = new mongoose.Schema(
+  {
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    type: {
+      type: String,
+      enum: ["vacation", "sick", "personal", "other"],
+      required: true,
+    },
+    startDate: {
+      type: Date,
+      required: true,
+    },
+    endDate: {
+      type: Date,
+      required: true,
+    },
+    reason: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    status: {
+      type: String,
+      enum: ["pending", "approved", "rejected", "cancelled"],
+      default: "pending",
+    },
+    approvedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+    approvedAt: {
+      type: Date,
+    },
+    comments: [commentSchema],
+    attachments: [
+      {
+        name: String,
+        url: String,
+        type: String,
+        uploadedAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
+    department: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Department",
+      required: true,
+    },
+  },
+  {
+    timestamps: true,
   }
-}, {
-  timestamps: true
-});
+);
 &nbsp;
 // Indexes
 TimeOffSchema.index({ user: 1, startDate: -1 });
@@ -329,7 +351,7 @@ TimeOffSchema.index({ department: 1, status: 1 });
 TimeOffSchema.index({ status: 1, startDate: 1 });
 &nbsp;
 // Virtual for duration in days
-TimeOffSchema.virtual('duration').get(<span class="fstat-no" title="function not covered" >fu</span>nction() {
+TimeOffSchema.virtual("duration").get(<span class="fstat-no" title="function not covered" >fu</span>nction () {
   const start = <span class="cstat-no" title="statement not covered" >new Date(this.startDate);</span>
   const end = <span class="cstat-no" title="statement not covered" >new Date(this.endDate);</span>
   const diffTime = <span class="cstat-no" title="statement not covered" >Math.abs(end - start);</span>
@@ -337,11 +359,10 @@ TimeOffSchema.virtual('duration').get(<span class="fstat-no" title="function not
 });
 &nbsp;
 // Configure virtuals
-TimeOffSchema.set('toJSON', { virtuals: true });
-TimeOffSchema.set('toObject', { virtuals: true });
+TimeOffSchema.set("toJSON", { virtuals: true });
+TimeOffSchema.set("toObject", { virtuals: true });
 &nbsp;
-module.exports = mongoose.model('TimeOff', TimeOffSchema);
-&nbsp;
+module.exports = mongoose.model("TimeOff", TimeOffSchema);
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -349,7 +370,7 @@ module.exports = mongoose.model('TimeOff', TimeOffSchema);
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-03-09T14:04:40.321Z
+                at 2025-03-13T17:54:00.610Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

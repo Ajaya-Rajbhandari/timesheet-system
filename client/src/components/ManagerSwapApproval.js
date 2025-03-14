@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   Box,
   Card,
@@ -17,31 +17,34 @@ import {
   Divider,
   IconButton,
   Tooltip,
-  Stack
-} from '@mui/material';
+  Stack,
+} from "@mui/material";
 import {
   CheckCircle as ApproveIcon,
   Cancel as RejectIcon,
   Info as InfoIcon,
-  FilterList as FilterIcon
-} from '@mui/icons-material';
-import { useAuth } from '../contexts/AuthContext';
-import api from '../services/api';
-import { getDepartmentShiftSwaps, approveShiftSwap } from '../services/shiftSwapService';
+  FilterList as FilterIcon,
+} from "@mui/icons-material";
+import { useAuth } from "../contexts/AuthContext";
+import api from "../services/api";
+import {
+  getDepartmentShiftSwaps,
+  approveShiftSwap,
+} from "../services/shiftSwapService";
 
 const ApprovalDialog = ({ open, onClose, swap, onApprove }) => {
-  const [notes, setNotes] = useState('');
+  const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
 
   const handleApproval = async (approved) => {
     setLoading(true);
-    setError('');
+    setError("");
     try {
       await onApprove(swap._id, approved, notes);
       onClose();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to process approval');
+      setError(err.response?.data?.message || "Failed to process approval");
     } finally {
       setLoading(false);
     }
@@ -49,9 +52,7 @@ const ApprovalDialog = ({ open, onClose, swap, onApprove }) => {
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>
-        Review Shift Swap Request
-      </DialogTitle>
+      <DialogTitle>Review Shift Swap Request</DialogTitle>
       <DialogContent>
         <Grid container spacing={3}>
           <Grid item xs={12}>
@@ -66,29 +67,36 @@ const ApprovalDialog = ({ open, onClose, swap, onApprove }) => {
                       Requesting Employee
                     </Typography>
                     <Typography gutterBottom>
-                      {swap?.requestingUser.firstName} {swap?.requestingUser.lastName}
+                      {swap?.requestingUser.firstName}{" "}
+                      {swap?.requestingUser.lastName}
                     </Typography>
                     <Typography variant="subtitle2">
                       Original Schedule
                     </Typography>
                     <Typography>
-                      {new Date(swap?.requestingSchedule.startDate).toLocaleDateString()} - 
-                      {new Date(swap?.requestingSchedule.endDate).toLocaleDateString()}
+                      {new Date(
+                        swap?.requestingSchedule.startDate,
+                      ).toLocaleDateString()}{" "}
+                      -
+                      {new Date(
+                        swap?.requestingSchedule.endDate,
+                      ).toLocaleDateString()}
                     </Typography>
                   </Grid>
                   <Grid item xs={12} md={6}>
-                    <Typography variant="subtitle2">
-                      Target Employee
-                    </Typography>
+                    <Typography variant="subtitle2">Target Employee</Typography>
                     <Typography gutterBottom>
                       {swap?.targetUser.firstName} {swap?.targetUser.lastName}
                     </Typography>
-                    <Typography variant="subtitle2">
-                      Target Schedule
-                    </Typography>
+                    <Typography variant="subtitle2">Target Schedule</Typography>
                     <Typography>
-                      {new Date(swap?.targetSchedule.startDate).toLocaleDateString()} - 
-                      {new Date(swap?.targetSchedule.endDate).toLocaleDateString()}
+                      {new Date(
+                        swap?.targetSchedule.startDate,
+                      ).toLocaleDateString()}{" "}
+                      -
+                      {new Date(
+                        swap?.targetSchedule.endDate,
+                      ).toLocaleDateString()}
                     </Typography>
                   </Grid>
                 </Grid>
@@ -107,9 +115,7 @@ const ApprovalDialog = ({ open, onClose, swap, onApprove }) => {
 
           {error && (
             <Grid item xs={12}>
-              <Alert severity="error">
-                {error}
-              </Alert>
+              <Alert severity="error">{error}</Alert>
             </Grid>
           )}
 
@@ -127,10 +133,7 @@ const ApprovalDialog = ({ open, onClose, swap, onApprove }) => {
         </Grid>
       </DialogContent>
       <DialogActions>
-        <Button 
-          onClick={onClose}
-          disabled={loading}
-        >
+        <Button onClick={onClose} disabled={loading}>
           Cancel
         </Button>
         <Button
@@ -159,35 +162,52 @@ const ManagerSwapApproval = () => {
   const { user } = useAuth();
   const [swaps, setSwaps] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [selectedSwap, setSelectedSwap] = useState(null);
   const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
-  const [filter, setFilter] = useState('pending'); // pending, approved, rejected
+  const [filter, setFilter] = useState("pending"); // pending, approved, rejected
 
   useEffect(() => {
-    if (!['admin', 'manager'].includes(user.role)) {
-      setError('Unauthorized access');
+    if (!user) {
+      setLoading(false);
+      setError("User information not available");
+      return;
+    }
+
+    if (!["admin", "manager"].includes(user.role)) {
+      setError("Unauthorized access");
       return;
     }
     fetchSwaps();
-  }, [user.role]);
+  }, [user]);
 
   const fetchSwaps = async () => {
     try {
       // Get swaps for the department
-      if (!user || !user.department || !user.department._id) {
-        console.error('User department information is missing');
-        setError('Department information is missing');
+      if (!user || !user.department) {
+        console.error("User department information is missing");
+        setError("Department information is missing");
         setLoading(false);
         return;
       }
-      
-      const departmentId = user.department._id || user.department;
+
+      // Handle both object reference and string ID
+      const departmentId =
+        typeof user.department === "object"
+          ? user.department._id
+          : user.department;
+
+      if (!departmentId) {
+        setError("Department ID is missing");
+        setLoading(false);
+        return;
+      }
+
       const data = await getDepartmentShiftSwaps(departmentId);
       setSwaps(data);
     } catch (err) {
-      console.error('Error fetching shift swaps:', err);
-      setError('Failed to load shift swaps');
+      console.error("Error fetching shift swaps:", err);
+      setError("Failed to load shift swaps");
     } finally {
       setLoading(false);
     }
@@ -197,7 +217,7 @@ const ManagerSwapApproval = () => {
     try {
       await approveShiftSwap(swapId, {
         approved,
-        notes
+        notes,
       });
       await fetchSwaps();
     } catch (err) {
@@ -205,13 +225,13 @@ const ManagerSwapApproval = () => {
     }
   };
 
-  const filteredSwaps = swaps.filter(swap => {
+  const filteredSwaps = swaps.filter((swap) => {
     switch (filter) {
-      case 'pending':
-        return swap.status === 'approved' && !swap.managerApproval;
-      case 'approved':
+      case "pending":
+        return swap.status === "approved" && !swap.managerApproval;
+      case "approved":
         return swap.managerApproval?.approved === true;
-      case 'rejected':
+      case "rejected":
         return swap.managerApproval?.approved === false;
       default:
         return true;
@@ -220,7 +240,12 @@ const ManagerSwapApproval = () => {
 
   if (loading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
+      <Box
+        display="flex"
+        justifyContent="center"
+        alignItems="center"
+        minHeight="200px"
+      >
         <CircularProgress />
       </Box>
     );
@@ -235,27 +260,30 @@ const ManagerSwapApproval = () => {
   }
 
   return (
-    <Box sx={{ width: '100%' }}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h5">
-          Shift Swap Approvals
-        </Typography>
+    <Box sx={{ width: "100%" }}>
+      <Box
+        display="flex"
+        justifyContent="space-between"
+        alignItems="center"
+        mb={3}
+      >
+        <Typography variant="h5">Shift Swap Approvals</Typography>
         <Stack direction="row" spacing={1}>
           <Button
-            variant={filter === 'pending' ? 'contained' : 'outlined'}
-            onClick={() => setFilter('pending')}
+            variant={filter === "pending" ? "contained" : "outlined"}
+            onClick={() => setFilter("pending")}
           >
             Pending
           </Button>
           <Button
-            variant={filter === 'approved' ? 'contained' : 'outlined'}
-            onClick={() => setFilter('approved')}
+            variant={filter === "approved" ? "contained" : "outlined"}
+            onClick={() => setFilter("approved")}
           >
             Approved
           </Button>
           <Button
-            variant={filter === 'rejected' ? 'contained' : 'outlined'}
-            onClick={() => setFilter('rejected')}
+            variant={filter === "rejected" ? "contained" : "outlined"}
+            onClick={() => setFilter("rejected")}
           >
             Rejected
           </Button>
@@ -267,28 +295,46 @@ const ManagerSwapApproval = () => {
           <Grid item xs={12} key={swap._id}>
             <Card>
               <CardContent>
-                <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                  <Typography variant="h6">
-                    Shift Swap Request
-                  </Typography>
+                <Box
+                  display="flex"
+                  justifyContent="space-between"
+                  alignItems="center"
+                  mb={2}
+                >
+                  <Typography variant="h6">Shift Swap Request</Typography>
                   <Chip
-                    label={swap.managerApproval ? 
-                      (swap.managerApproval.approved ? 'APPROVED' : 'REJECTED') : 
-                      'PENDING APPROVAL'}
-                    color={swap.managerApproval ? 
-                      (swap.managerApproval.approved ? 'success' : 'error') : 
-                      'warning'}
+                    label={
+                      swap.managerApproval
+                        ? swap.managerApproval.approved
+                          ? "APPROVED"
+                          : "REJECTED"
+                        : "PENDING APPROVAL"
+                    }
+                    color={
+                      swap.managerApproval
+                        ? swap.managerApproval.approved
+                          ? "success"
+                          : "error"
+                        : "warning"
+                    }
                   />
                 </Box>
 
                 <Grid container spacing={2}>
                   <Grid item xs={12} md={6}>
                     <Typography variant="subtitle2">
-                      From: {swap.requestingUser.firstName} {swap.requestingUser.lastName}
+                      From: {swap.requestingUser.firstName}{" "}
+                      {swap.requestingUser.lastName}
                     </Typography>
                     <Typography variant="body2" color="textSecondary">
-                      Schedule: {new Date(swap.requestingSchedule.startDate).toLocaleDateString()} - 
-                      {new Date(swap.requestingSchedule.endDate).toLocaleDateString()}
+                      Schedule:{" "}
+                      {new Date(
+                        swap.requestingSchedule.startDate,
+                      ).toLocaleDateString()}{" "}
+                      -
+                      {new Date(
+                        swap.requestingSchedule.endDate,
+                      ).toLocaleDateString()}
                     </Typography>
                   </Grid>
                   <Grid item xs={12} md={6}>
@@ -296,8 +342,14 @@ const ManagerSwapApproval = () => {
                       To: {swap.targetUser.firstName} {swap.targetUser.lastName}
                     </Typography>
                     <Typography variant="body2" color="textSecondary">
-                      Schedule: {new Date(swap.targetSchedule.startDate).toLocaleDateString()} - 
-                      {new Date(swap.targetSchedule.endDate).toLocaleDateString()}
+                      Schedule:{" "}
+                      {new Date(
+                        swap.targetSchedule.startDate,
+                      ).toLocaleDateString()}{" "}
+                      -
+                      {new Date(
+                        swap.targetSchedule.endDate,
+                      ).toLocaleDateString()}
                     </Typography>
                   </Grid>
                 </Grid>
@@ -332,12 +384,16 @@ const ManagerSwapApproval = () => {
                       Manager Notes:
                     </Typography>
                     <Typography color="textSecondary">
-                      {swap.managerApproval.notes || 'No notes provided'}
+                      {swap.managerApproval.notes || "No notes provided"}
                     </Typography>
                     <Typography variant="body2" color="textSecondary" mt={1}>
-                      Reviewed by: {swap.managerApproval.approvedBy.firstName} {swap.managerApproval.approvedBy.lastName}
+                      Reviewed by: {swap.managerApproval.approvedBy.firstName}{" "}
+                      {swap.managerApproval.approvedBy.lastName}
                       <br />
-                      Date: {new Date(swap.managerApproval.approvalDate).toLocaleString()}
+                      Date:{" "}
+                      {new Date(
+                        swap.managerApproval.approvalDate,
+                      ).toLocaleString()}
                     </Typography>
                   </Box>
                 )}
@@ -349,7 +405,9 @@ const ManagerSwapApproval = () => {
         {filteredSwaps.length === 0 && (
           <Grid item xs={12}>
             <Alert severity="info">
-              No shift swap requests {filter === 'pending' ? 'pending approval' : `${filter}`} at this time.
+              No shift swap requests{" "}
+              {filter === "pending" ? "pending approval" : `${filter}`} at this
+              time.
             </Alert>
           </Grid>
         )}
@@ -370,4 +428,4 @@ const ManagerSwapApproval = () => {
   );
 };
 
-export default ManagerSwapApproval; 
+export default ManagerSwapApproval;

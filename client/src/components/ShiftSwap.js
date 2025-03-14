@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   Button,
   Dialog,
@@ -16,37 +16,37 @@ import {
   ListItemText,
   Chip,
   Box,
-  Alert
-} from '@mui/material';
-import { useAuth } from '../contexts/AuthContext';
-import axios from '../utils/axios';
-import api from '../services/api';
-import { requestShiftSwap } from '../services/shiftSwapService';
+  Alert,
+} from "@mui/material";
+import { useAuth } from "../contexts/AuthContext";
+import axios from "../utils/axios";
+import api from "../services/api";
+import { requestShiftSwap } from "../services/shiftSwapService";
 
 const ShiftSwap = ({ schedule, onClose, open, embedded = false }) => {
   const { user } = useAuth();
-  const [targetUser, setTargetUser] = useState('');
-  const [targetSchedule, setTargetSchedule] = useState('');
-  const [reason, setReason] = useState('');
+  const [targetUser, setTargetUser] = useState("");
+  const [targetSchedule, setTargetSchedule] = useState("");
+  const [reason, setReason] = useState("");
   const [availableUsers, setAvailableUsers] = useState([]);
   const [availableSchedules, setAvailableSchedules] = useState([]);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const fetchAvailableUsers = async () => {
       try {
-        if (!user || !user.department) {
-          setError('User information is missing');
+        if (!user) {
+          setError("User information is missing");
           return;
         }
-        
-        // Get users from the same department
-        const response = await axios.get(`/api/users/department/${user.department}`);
-        setAvailableUsers(response.data.filter(u => u._id !== user._id));
+
+        // Use the dedicated endpoint for shift swap candidates
+        const response = await api.get("/shift-swaps/department-users");
+        setAvailableUsers(response.data);
       } catch (err) {
-        console.error('Error fetching users:', err);
-        setError('Failed to fetch available users');
+        console.error("Error fetching users:", err);
+        setError("Failed to fetch available users");
       }
     };
 
@@ -57,15 +57,17 @@ const ShiftSwap = ({ schedule, onClose, open, embedded = false }) => {
 
   useEffect(() => {
     const fetchTargetSchedules = async () => {
-      if (!targetUser) return;
+      setAvailableSchedules([]);
 
       try {
-        // Get schedules for the target user
-        const response = await axios.get(`/api/schedules/user/${targetUser}`);
+        // Get schedules for the target user using the dedicated endpoint
+        const response = await api.get(
+          `/shift-swaps/user-schedules/${targetUser}`,
+        );
         setAvailableSchedules(response.data);
       } catch (err) {
-        console.error('Error fetching schedules:', err);
-        setError('Failed to fetch available schedules');
+        console.error("Error fetching schedules:", err);
+        setError("Failed to fetch available schedules");
       }
     };
 
@@ -76,11 +78,11 @@ const ShiftSwap = ({ schedule, onClose, open, embedded = false }) => {
 
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
-    setError('');
+    setError("");
     setLoading(true);
 
     if (!schedule) {
-      setError('No schedule selected');
+      setError("No schedule selected");
       setLoading(false);
       return;
     }
@@ -90,27 +92,27 @@ const ShiftSwap = ({ schedule, onClose, open, embedded = false }) => {
         targetUserId: targetUser,
         requestingScheduleId: schedule._id,
         targetScheduleId: targetSchedule,
-        reason
+        reason,
       });
 
       onClose();
       // You might want to trigger a refresh of the schedule list here
     } catch (err) {
-      console.error('Error requesting shift swap:', err);
-      setError(err.response?.data?.message || 'Failed to request shift swap');
+      console.error("Error requesting shift swap:", err);
+      setError(err.response?.data?.message || "Failed to request shift swap");
     } finally {
       setLoading(false);
     }
   };
 
   const formatDate = (date) => {
-    if (!date) return 'N/A';
-    
-    return new Date(date).toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
+    if (!date) return "N/A";
+
+    return new Date(date).toLocaleDateString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
     });
   };
 
@@ -119,9 +121,7 @@ const ShiftSwap = ({ schedule, onClose, open, embedded = false }) => {
       {!embedded ? (
         <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
           <DialogTitle>Request Shift Swap</DialogTitle>
-          <DialogContent>
-            {renderContent()}
-          </DialogContent>
+          <DialogContent>{renderContent()}</DialogContent>
           <DialogActions>
             <Button onClick={onClose}>Cancel</Button>
             <Button
@@ -137,7 +137,7 @@ const ShiftSwap = ({ schedule, onClose, open, embedded = false }) => {
       ) : (
         <>
           {renderContent()}
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+          <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 2 }}>
             <Button
               onClick={handleSubmit}
               variant="contained"
@@ -151,7 +151,7 @@ const ShiftSwap = ({ schedule, onClose, open, embedded = false }) => {
       )}
     </>
   );
-  
+
   function renderContent() {
     if (!schedule) {
       return (
@@ -160,7 +160,7 @@ const ShiftSwap = ({ schedule, onClose, open, embedded = false }) => {
         </Alert>
       );
     }
-    
+
     return (
       <>
         <Box sx={{ mb: 2 }}>
@@ -203,7 +203,8 @@ const ShiftSwap = ({ schedule, onClose, open, embedded = false }) => {
             >
               {availableSchedules.map((schedule) => (
                 <MenuItem key={schedule._id} value={schedule._id}>
-                  {formatDate(schedule.startDate)} - {formatDate(schedule.endDate)}
+                  {formatDate(schedule.startDate)} -{" "}
+                  {formatDate(schedule.endDate)}
                 </MenuItem>
               ))}
             </Select>
@@ -224,4 +225,4 @@ const ShiftSwap = ({ schedule, onClose, open, embedded = false }) => {
   }
 };
 
-export default ShiftSwap; 
+export default ShiftSwap;

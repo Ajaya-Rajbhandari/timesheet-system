@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   Box,
   Typography,
@@ -6,7 +6,6 @@ import {
   Grid,
   TextField,
   Button,
-  Avatar,
   Divider,
   Chip,
   CircularProgress,
@@ -17,8 +16,8 @@ import {
   IconButton,
   InputAdornment,
   Tab,
-  Tabs
-} from '@mui/material';
+  Tabs,
+} from "@mui/material";
 import {
   Person as PersonIcon,
   Email as EmailIcon,
@@ -31,12 +30,16 @@ import {
   VisibilityOff as VisibilityOffIcon,
   Badge as BadgeIcon,
   CalendarMonth as CalendarMonthIcon,
-  ContactEmergency as ContactEmergencyIcon
-} from '@mui/icons-material';
-import { useAuth } from '../contexts/AuthContext';
-import { updateUser, fetchUserById, updatePassword } from '../services/userService';
-import ImageUpload from '../components/common/ImageUpload';
-import moment from 'moment';
+  ContactEmergency as ContactEmergencyIcon,
+} from "@mui/icons-material";
+import { useAuth } from "../contexts/AuthContext";
+import {
+  updateUser,
+  fetchUserById,
+  updatePassword,
+} from "../services/userService";
+import moment from "moment";
+import ProfileImageUploader from "../components/ProfileImageUploader";
 
 const Profile = () => {
   const { user, checkAuthStatus } = useAuth();
@@ -44,28 +47,31 @@ const Profile = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('Profile updated successfully!');
+  const [successMessage, setSuccessMessage] = useState(
+    "Profile updated successfully!",
+  );
   const [editMode, setEditMode] = useState(false);
   const [tabValue, setTabValue] = useState(0);
-  
+  const [profileImage, setProfileImage] = useState(user.profileImage);
+
   // Password change state
   const [passwordData, setPasswordData] = useState({
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: ''
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
   });
   const [showPassword, setShowPassword] = useState({
     current: false,
     new: false,
-    confirm: false
+    confirm: false,
   });
   const [passwordError, setPasswordError] = useState(null);
-  
+
   // Emergency contact state
   const [emergencyContact, setEmergencyContact] = useState({
-    name: '',
-    relationship: '',
-    phoneNumber: ''
+    name: "",
+    relationship: "",
+    phoneNumber: "",
   });
 
   useEffect(() => {
@@ -73,163 +79,170 @@ const Profile = () => {
       try {
         setLoading(true);
         setError(null);
-        
+
         if (!user || !user._id) {
-          setError('User not authenticated');
+          console.log("No user ID found in auth context");
+          setError("User not authenticated");
           setLoading(false);
           return;
         }
-        
+
+        // Use _id for consistency with MongoDB
         const userData = await fetchUserById(user._id);
+        if (!userData) {
+          throw new Error("Failed to fetch user data");
+        }
+
         setProfileData(userData);
-        
+
         // Initialize emergency contact if it exists
         if (userData.emergencyContact) {
           setEmergencyContact(userData.emergencyContact);
         }
-        
+
         setLoading(false);
       } catch (err) {
-        console.error('Error fetching profile:', err);
-        setError(err.message || 'Failed to load profile');
+        console.error("Error fetching profile:", err);
+        setError("Error fetching user profile. Please try again.");
         setLoading(false);
       }
     };
-    
+
     fetchProfile();
   }, [user]);
-  
+
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setProfileData(prev => ({
+    setProfileData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
   };
-  
+
   const handleEmergencyContactChange = (e) => {
     const { name, value } = e.target;
-    setEmergencyContact(prev => ({
+    setEmergencyContact((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
   };
-  
+
   const handlePasswordChange = (e) => {
     const { name, value } = e.target;
-    setPasswordData(prev => ({
+    setPasswordData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
   };
-  
+
   const togglePasswordVisibility = (field) => {
-    setShowPassword(prev => ({
+    setShowPassword((prev) => ({
       ...prev,
-      [field]: !prev[field]
+      [field]: !prev[field],
     }));
   };
-  
+
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
   };
-  
+
   const handleSaveProfile = async () => {
     try {
       setLoading(true);
       setError(null);
-      
+
       // Prepare data for update
       const updateData = {
         firstName: profileData.firstName,
         lastName: profileData.lastName,
         email: profileData.email,
         phoneNumber: profileData.phoneNumber,
-        emergencyContact: emergencyContact
+        emergencyContact: emergencyContact,
+        profileImage: profileImage,
       };
-      
-      // Update user profile
+
+      // Update user profile using _id
       await updateUser(user._id, updateData);
-      
+
       // Refresh auth context to get updated user data
       await checkAuthStatus();
-      
-      setSuccessMessage('Profile updated successfully!');
+
+      setSuccessMessage("Profile updated successfully!");
       setSuccess(true);
       setEditMode(false);
       setLoading(false);
     } catch (err) {
-      console.error('Error updating profile:', err);
-      setError(err.message || 'Failed to update profile');
+      console.error("Error updating profile:", err);
+      setError("Error updating user profile. Please try again.");
       setLoading(false);
     }
   };
-  
+
   const handlePasswordUpdate = async () => {
     // Reset errors
     setPasswordError(null);
-    
+
     // Validate passwords match
     if (passwordData.newPassword !== passwordData.confirmPassword) {
-      setPasswordError('New passwords do not match');
+      setPasswordError("New passwords do not match");
       return;
     }
-    
+
     // Validate password length
     if (passwordData.newPassword.length < 6) {
-      setPasswordError('Password must be at least 6 characters');
+      setPasswordError("Password must be at least 6 characters");
       return;
     }
-    
+
     try {
       setLoading(true);
-      
+
       // Call the API to update the password
-      await updatePassword(passwordData.currentPassword, passwordData.newPassword);
-      
+      await updatePassword(
+        passwordData.currentPassword,
+        passwordData.newPassword,
+      );
+
       // Reset form and show success message
       setPasswordData({
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: ''
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
       });
-      
-      setSuccessMessage('Password updated successfully!');
+
+      setSuccessMessage("Password updated successfully!");
       setSuccess(true);
       setLoading(false);
     } catch (err) {
-      console.error('Error updating password:', err);
-      setPasswordError(err.message || 'Failed to update password');
+      console.error("Error updating password:", err);
+      setPasswordError("Error updating password. Please try again.");
       setLoading(false);
     }
   };
-  
-  const handleImageUpdate = (updatedUser) => {
-    setProfileData(prevData => ({
-      ...prevData,
-      profileImage: updatedUser.profileImage
-    }));
-    setSuccessMessage('Profile picture updated successfully!');
-    setSuccess(true);
+
+  const handleImageUploadSuccess = (newImageUrl) => {
+    setProfileImage(newImageUrl);
   };
-  
+
   const handleCloseSnackbar = () => {
     setSuccess(false);
   };
-  
-  const getProfileImageUrl = (imageName) => {
-    if (!imageName) return null;
-    return `${process.env.REACT_APP_API_URL || ''}/api/upload/profile/${imageName}`;
-  };
-  
+
   if (loading && !profileData) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          height: "80vh",
+        }}
+      >
         <CircularProgress />
       </Box>
     );
   }
-  
+
   if (error && !profileData) {
     return (
       <Box sx={{ p: 3 }}>
@@ -237,67 +250,83 @@ const Profile = () => {
       </Box>
     );
   }
-  
+
   return (
-    <Box sx={{ maxWidth: 1200, mx: 'auto', p: 2 }}>
-      <Typography variant="h4" gutterBottom sx={{ mb: 3, fontWeight: 'bold' }}>
+    <Box sx={{ maxWidth: 1200, mx: "auto", p: 2 }}>
+      <Typography variant="h4" gutterBottom sx={{ mb: 3, fontWeight: "bold" }}>
         My Profile
       </Typography>
-      
+
       <Grid container spacing={3}>
         {/* Profile Summary Card */}
         <Grid item xs={12} md={4}>
-          <Card sx={{ height: '100%', boxShadow: 3 }}>
-            <CardContent sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', p: 3 }}>
+          <Card sx={{ height: "100%", boxShadow: 3 }}>
+            <CardContent
+              sx={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                p: 3,
+              }}
+            >
               <Box sx={{ mb: 2 }}>
-                <ImageUpload 
-                  currentImage={profileData?.profileImage}
-                  onImageUpdate={handleImageUpdate}
-                  size={120}
+                <img
+                  src={profileImage}
+                  alt="Profile Image"
+                  style={{ width: 120, height: 120, borderRadius: "50%" }}
                 />
               </Box>
-              
+
               <Typography variant="h5" gutterBottom>
                 {profileData?.firstName} {profileData?.lastName}
               </Typography>
-              
+
               <Typography variant="body1" color="text.secondary" gutterBottom>
                 {profileData?.position}
               </Typography>
-              
-              <Chip 
-                label={profileData?.role.toUpperCase()} 
-                color={profileData?.role === 'admin' ? 'error' : profileData?.role === 'manager' ? 'warning' : 'primary'}
+
+              <Chip
+                label={profileData?.role.toUpperCase()}
+                color={
+                  profileData?.role === "admin"
+                    ? "error"
+                    : profileData?.role === "manager"
+                      ? "warning"
+                      : "primary"
+                }
                 sx={{ mt: 1, mb: 2 }}
               />
-              
-              <Divider sx={{ width: '100%', my: 2 }} />
-              
-              <Box sx={{ width: '100%' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                  <BadgeIcon sx={{ mr: 2, color: 'text.secondary' }} />
+
+              <Divider sx={{ width: "100%", my: 2 }} />
+
+              <Box sx={{ width: "100%" }}>
+                <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+                  <BadgeIcon sx={{ mr: 2, color: "text.secondary" }} />
                   <Typography variant="body2">
                     Employee ID: <strong>{profileData?.employeeId}</strong>
                   </Typography>
                 </Box>
-                
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                  <CalendarMonthIcon sx={{ mr: 2, color: 'text.secondary' }} />
+
+                <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+                  <CalendarMonthIcon sx={{ mr: 2, color: "text.secondary" }} />
                   <Typography variant="body2">
-                    Joined: <strong>{moment(profileData?.hireDate).format('MMM DD, YYYY')}</strong>
+                    Joined:{" "}
+                    <strong>
+                      {moment(profileData?.hireDate).format("MMM DD, YYYY")}
+                    </strong>
                   </Typography>
                 </Box>
-                
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                  <EmailIcon sx={{ mr: 2, color: 'text.secondary' }} />
+
+                <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+                  <EmailIcon sx={{ mr: 2, color: "text.secondary" }} />
                   <Typography variant="body2" noWrap>
                     {profileData?.email}
                   </Typography>
                 </Box>
-                
+
                 {profileData?.phoneNumber && (
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <PhoneIcon sx={{ mr: 2, color: 'text.secondary' }} />
+                  <Box sx={{ display: "flex", alignItems: "center" }}>
+                    <PhoneIcon sx={{ mr: 2, color: "text.secondary" }} />
                     <Typography variant="body2">
                       {profileData.phoneNumber}
                     </Typography>
@@ -307,7 +336,7 @@ const Profile = () => {
             </CardContent>
           </Card>
         </Grid>
-        
+
         {/* Profile Details Tabs */}
         <Grid item xs={12} md={8}>
           <Paper sx={{ boxShadow: 3 }}>
@@ -322,29 +351,35 @@ const Profile = () => {
               <Tab label="Emergency Contact" />
               <Tab label="Security" />
             </Tabs>
-            
+
             <Box sx={{ p: 3 }}>
               {/* Personal Information Tab */}
               {tabValue === 0 && (
                 <Box>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      mb: 2,
+                    }}
+                  >
                     <Typography variant="h6">Personal Information</Typography>
                     <Button
                       startIcon={editMode ? <CancelIcon /> : <EditIcon />}
-                      color={editMode ? 'error' : 'primary'}
+                      color={editMode ? "error" : "primary"}
                       onClick={() => setEditMode(!editMode)}
                     >
-                      {editMode ? 'Cancel' : 'Edit'}
+                      {editMode ? "Cancel" : "Edit"}
                     </Button>
                   </Box>
-                  
+
                   <Grid container spacing={2}>
                     <Grid item xs={12} sm={6}>
                       <TextField
                         fullWidth
                         label="First Name"
                         name="firstName"
-                        value={profileData?.firstName || ''}
+                        value={profileData?.firstName || ""}
                         onChange={handleChange}
                         disabled={!editMode}
                         margin="normal"
@@ -357,13 +392,13 @@ const Profile = () => {
                         }}
                       />
                     </Grid>
-                    
+
                     <Grid item xs={12} sm={6}>
                       <TextField
                         fullWidth
                         label="Last Name"
                         name="lastName"
-                        value={profileData?.lastName || ''}
+                        value={profileData?.lastName || ""}
                         onChange={handleChange}
                         disabled={!editMode}
                         margin="normal"
@@ -376,14 +411,14 @@ const Profile = () => {
                         }}
                       />
                     </Grid>
-                    
+
                     <Grid item xs={12} sm={6}>
                       <TextField
                         fullWidth
                         label="Email"
                         name="email"
                         type="email"
-                        value={profileData?.email || ''}
+                        value={profileData?.email || ""}
                         onChange={handleChange}
                         disabled={!editMode}
                         margin="normal"
@@ -396,13 +431,13 @@ const Profile = () => {
                         }}
                       />
                     </Grid>
-                    
+
                     <Grid item xs={12} sm={6}>
                       <TextField
                         fullWidth
                         label="Phone Number"
                         name="phoneNumber"
-                        value={profileData?.phoneNumber || ''}
+                        value={profileData?.phoneNumber || ""}
                         onChange={handleChange}
                         disabled={!editMode}
                         margin="normal"
@@ -415,12 +450,12 @@ const Profile = () => {
                         }}
                       />
                     </Grid>
-                    
+
                     <Grid item xs={12} sm={6}>
                       <TextField
                         fullWidth
                         label="Position"
-                        value={profileData?.position || ''}
+                        value={profileData?.position || ""}
                         disabled
                         margin="normal"
                         InputProps={{
@@ -432,12 +467,12 @@ const Profile = () => {
                         }}
                       />
                     </Grid>
-                    
+
                     <Grid item xs={12} sm={6}>
                       <TextField
                         fullWidth
                         label="Department"
-                        value={profileData?.department?.name || 'Loading...'}
+                        value={profileData?.department?.name || "Loading..."}
                         disabled
                         margin="normal"
                         InputProps={{
@@ -450,9 +485,15 @@ const Profile = () => {
                       />
                     </Grid>
                   </Grid>
-                  
+
                   {editMode && (
-                    <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
+                    <Box
+                      sx={{
+                        mt: 3,
+                        display: "flex",
+                        justifyContent: "flex-end",
+                      }}
+                    >
                       <Button
                         variant="contained"
                         color="primary"
@@ -460,34 +501,40 @@ const Profile = () => {
                         onClick={handleSaveProfile}
                         disabled={loading}
                       >
-                        {loading ? 'Saving...' : 'Save Changes'}
+                        {loading ? "Saving..." : "Save Changes"}
                       </Button>
                     </Box>
                   )}
                 </Box>
               )}
-              
+
               {/* Emergency Contact Tab */}
               {tabValue === 1 && (
                 <Box>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      mb: 2,
+                    }}
+                  >
                     <Typography variant="h6">Emergency Contact</Typography>
                     <Button
                       startIcon={editMode ? <CancelIcon /> : <EditIcon />}
-                      color={editMode ? 'error' : 'primary'}
+                      color={editMode ? "error" : "primary"}
                       onClick={() => setEditMode(!editMode)}
                     >
-                      {editMode ? 'Cancel' : 'Edit'}
+                      {editMode ? "Cancel" : "Edit"}
                     </Button>
                   </Box>
-                  
+
                   <Grid container spacing={2}>
                     <Grid item xs={12} sm={6}>
                       <TextField
                         fullWidth
                         label="Contact Name"
                         name="name"
-                        value={emergencyContact?.name || ''}
+                        value={emergencyContact?.name || ""}
                         onChange={handleEmergencyContactChange}
                         disabled={!editMode}
                         margin="normal"
@@ -500,13 +547,13 @@ const Profile = () => {
                         }}
                       />
                     </Grid>
-                    
+
                     <Grid item xs={12} sm={6}>
                       <TextField
                         fullWidth
                         label="Relationship"
                         name="relationship"
-                        value={emergencyContact?.relationship || ''}
+                        value={emergencyContact?.relationship || ""}
                         onChange={handleEmergencyContactChange}
                         disabled={!editMode}
                         margin="normal"
@@ -519,13 +566,13 @@ const Profile = () => {
                         }}
                       />
                     </Grid>
-                    
+
                     <Grid item xs={12}>
                       <TextField
                         fullWidth
                         label="Phone Number"
                         name="phoneNumber"
-                        value={emergencyContact?.phoneNumber || ''}
+                        value={emergencyContact?.phoneNumber || ""}
                         onChange={handleEmergencyContactChange}
                         disabled={!editMode}
                         margin="normal"
@@ -539,9 +586,15 @@ const Profile = () => {
                       />
                     </Grid>
                   </Grid>
-                  
+
                   {editMode && (
-                    <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
+                    <Box
+                      sx={{
+                        mt: 3,
+                        display: "flex",
+                        justifyContent: "flex-end",
+                      }}
+                    >
                       <Button
                         variant="contained"
                         color="primary"
@@ -549,31 +602,33 @@ const Profile = () => {
                         onClick={handleSaveProfile}
                         disabled={loading}
                       >
-                        {loading ? 'Saving...' : 'Save Changes'}
+                        {loading ? "Saving..." : "Save Changes"}
                       </Button>
                     </Box>
                   )}
                 </Box>
               )}
-              
+
               {/* Security Tab */}
               {tabValue === 2 && (
                 <Box>
-                  <Typography variant="h6" gutterBottom>Change Password</Typography>
-                  
+                  <Typography variant="h6" gutterBottom>
+                    Change Password
+                  </Typography>
+
                   {passwordError && (
                     <Alert severity="error" sx={{ mb: 2 }}>
                       {passwordError}
                     </Alert>
                   )}
-                  
+
                   <Grid container spacing={2}>
                     <Grid item xs={12}>
                       <TextField
                         fullWidth
                         label="Current Password"
                         name="currentPassword"
-                        type={showPassword.current ? 'text' : 'password'}
+                        type={showPassword.current ? "text" : "password"}
                         value={passwordData.currentPassword}
                         onChange={handlePasswordChange}
                         margin="normal"
@@ -581,23 +636,29 @@ const Profile = () => {
                           endAdornment: (
                             <InputAdornment position="end">
                               <IconButton
-                                onClick={() => togglePasswordVisibility('current')}
+                                onClick={() =>
+                                  togglePasswordVisibility("current")
+                                }
                                 edge="end"
                               >
-                                {showPassword.current ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                                {showPassword.current ? (
+                                  <VisibilityOffIcon />
+                                ) : (
+                                  <VisibilityIcon />
+                                )}
                               </IconButton>
                             </InputAdornment>
                           ),
                         }}
                       />
                     </Grid>
-                    
+
                     <Grid item xs={12}>
                       <TextField
                         fullWidth
                         label="New Password"
                         name="newPassword"
-                        type={showPassword.new ? 'text' : 'password'}
+                        type={showPassword.new ? "text" : "password"}
                         value={passwordData.newPassword}
                         onChange={handlePasswordChange}
                         margin="normal"
@@ -605,23 +666,27 @@ const Profile = () => {
                           endAdornment: (
                             <InputAdornment position="end">
                               <IconButton
-                                onClick={() => togglePasswordVisibility('new')}
+                                onClick={() => togglePasswordVisibility("new")}
                                 edge="end"
                               >
-                                {showPassword.new ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                                {showPassword.new ? (
+                                  <VisibilityOffIcon />
+                                ) : (
+                                  <VisibilityIcon />
+                                )}
                               </IconButton>
                             </InputAdornment>
                           ),
                         }}
                       />
                     </Grid>
-                    
+
                     <Grid item xs={12}>
                       <TextField
                         fullWidth
                         label="Confirm New Password"
                         name="confirmPassword"
-                        type={showPassword.confirm ? 'text' : 'password'}
+                        type={showPassword.confirm ? "text" : "password"}
                         value={passwordData.confirmPassword}
                         onChange={handlePasswordChange}
                         margin="normal"
@@ -629,10 +694,16 @@ const Profile = () => {
                           endAdornment: (
                             <InputAdornment position="end">
                               <IconButton
-                                onClick={() => togglePasswordVisibility('confirm')}
+                                onClick={() =>
+                                  togglePasswordVisibility("confirm")
+                                }
                                 edge="end"
                               >
-                                {showPassword.confirm ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                                {showPassword.confirm ? (
+                                  <VisibilityOffIcon />
+                                ) : (
+                                  <VisibilityIcon />
+                                )}
                               </IconButton>
                             </InputAdornment>
                           ),
@@ -640,15 +711,22 @@ const Profile = () => {
                       />
                     </Grid>
                   </Grid>
-                  
-                  <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
+
+                  <Box
+                    sx={{ mt: 3, display: "flex", justifyContent: "flex-end" }}
+                  >
                     <Button
                       variant="contained"
                       color="primary"
                       onClick={handlePasswordUpdate}
-                      disabled={loading || !passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword}
+                      disabled={
+                        loading ||
+                        !passwordData.currentPassword ||
+                        !passwordData.newPassword ||
+                        !passwordData.confirmPassword
+                      }
                     >
-                      {loading ? 'Updating...' : 'Update Password'}
+                      {loading ? "Updating..." : "Update Password"}
                     </Button>
                   </Box>
                 </Box>
@@ -657,9 +735,22 @@ const Profile = () => {
           </Paper>
         </Grid>
       </Grid>
-      
-      <Snackbar open={success} autoHideDuration={6000} onClose={handleCloseSnackbar}>
-        <Alert onClose={handleCloseSnackbar} severity="success" sx={{ width: '100%' }}>
+
+      <ProfileImageUploader
+        currentImage={profileImage}
+        onUploadSuccess={handleImageUploadSuccess}
+      />
+
+      <Snackbar
+        open={success}
+        autoHideDuration={6000}
+        onClose={handleCloseSnackbar}
+      >
+        <Alert
+          onClose={handleCloseSnackbar}
+          severity="success"
+          sx={{ width: "100%" }}
+        >
           {successMessage}
         </Alert>
       </Snackbar>

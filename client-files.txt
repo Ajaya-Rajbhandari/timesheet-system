@@ -2,4 +2,4 @@ client/src/**/*
 client/public/**/*
 client/package.json
 client/package-lock.json
-client/README.md 
+client/README.md
