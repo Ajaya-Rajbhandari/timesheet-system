@@ -39,7 +39,8 @@ import {
   updatePassword,
 } from "../services/userService";
 import moment from "moment";
-import ProfileImageUploader from "../components/ProfileImageUploader";
+import ImageUpload from '../components/ImageUpload';
+import axios from 'axios';
 
 const Profile = () => {
   const { user, checkAuthStatus } = useAuth();
@@ -220,8 +221,27 @@ const Profile = () => {
     }
   };
 
-  const handleImageUploadSuccess = (newImageUrl) => {
-    setProfileImage(newImageUrl);
+  const handleImageUpload = async (formData) => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      const config = {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          Authorization: `Bearer ${token}`,
+        },
+      };
+
+      const { data } = await axios.post('/api/profile/upload', formData, config);
+      setProfileImage(data.profileImage);
+      setSuccessMessage('Profile image updated successfully!');
+      setSuccess(true);
+    } catch (error) {
+      console.error('Image upload failed:', error);
+      setError('Failed to upload image. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleCloseSnackbar = () => {
@@ -736,9 +756,9 @@ const Profile = () => {
         </Grid>
       </Grid>
 
-      <ProfileImageUploader
-        currentImage={profileImage}
-        onUploadSuccess={handleImageUploadSuccess}
+      <ImageUpload
+        onUpload={handleImageUpload}
+        defaultImage={profileImage}
       />
 
       <Snackbar

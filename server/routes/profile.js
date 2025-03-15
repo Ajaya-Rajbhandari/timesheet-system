@@ -72,7 +72,8 @@ router.post(
 
       res.json({ profileImage });
     } catch (err) {
-      console.error("Profile image upload error:", err);
+      console.error("Profile image upload error:", err.message);
+
       if (err.message === "Error: Images Only!") {
         return res.status(400).json({ message: err.message });
       }

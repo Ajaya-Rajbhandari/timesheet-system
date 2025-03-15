@@ -13,6 +13,8 @@ dotenv.config();
 validateEnv();
 
 const app = express();
+app.set('trust proxy', 1); // Enable trust proxy since we're behind nginx
+
 
 // Security middleware
 app.use(

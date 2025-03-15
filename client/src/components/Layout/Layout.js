@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Box,
   AppBar,
@@ -34,6 +34,8 @@ import {
   Logout as LogoutIcon,
   Brightness4 as DarkModeIcon,
   Brightness7 as LightModeIcon,
+  ChevronLeft as ChevronLeftIcon,
+  ChevronRight as ChevronRightIcon,
 } from "@mui/icons-material";
 import { useAuth } from "../../contexts/AuthContext";
 import { useAttendance } from "../../contexts/AttendanceContext";
@@ -41,7 +43,51 @@ import { useTheme as useCustomTheme } from "../../context/ThemeContext";
 import Sidebar from "./Sidebar";
 import { styled } from "@mui/material/styles";
 
-const drawerWidth = 240;
+const drawerWidth = 260;
+
+const Main = styled('main', { shouldForwardProp: (prop) => prop !== 'open' })(
+  ({ theme, open }) => ({
+    flexGrow: 1,
+    padding: theme.spacing(3),
+    transition: theme.transitions.create('margin', {
+      easing: theme.transitions.easing.sharp,
+      duration: theme.transitions.duration.leavingScreen,
+    }),
+    marginLeft: `-${drawerWidth}px`,
+    ...(open && {
+      transition: theme.transitions.create('margin', {
+        easing: theme.transitions.easing.easeOut,
+        duration: theme.transitions.duration.enteringScreen,
+      }),
+      marginLeft: 0,
+    }),
+  }),
+);
+
+const StyledAppBar = styled(AppBar, {
+  shouldForwardProp: (prop) => prop !== 'open',
+})(({ theme, open }) => ({
+  transition: theme.transitions.create(['margin', 'width'], {
+    easing: theme.transitions.easing.sharp,
+    duration: theme.transitions.duration.leavingScreen,
+  }),
+  ...(open && {
+    width: `calc(100% - ${drawerWidth}px)`,
+    marginLeft: `${drawerWidth}px`,
+    transition: theme.transitions.create(['margin', 'width'], {
+      easing: theme.transitions.easing.easeOut,
+      duration: theme.transitions.duration.enteringScreen,
+    }),
+  }),
+}));
+
+const DrawerHeader = styled('div')(({ theme }) => ({
+  display: 'flex',
+  alignItems: 'center',
+  padding: theme.spacing(0, 1),
+  ...theme.mixins.toolbar,
+  justifyContent: 'flex-end',
+}));
 
 // Custom styled components
 const StyledSwitch = styled(Switch)(({ theme }) => ({
@@ -95,8 +141,46 @@ const UserInfo = styled(Box)(({ theme }) => ({
   display: "flex",
   alignItems: "center",
   gap: theme.spacing(2),
-  padding: theme.spacing(0, 2),
+  padding: theme.spacing(1.5, 2),
   color: theme.palette.text.primary,
+  background: theme.palette.background.paper,
+  borderRadius: theme.shape.borderRadius,
+  boxShadow: "0 1px 2px 0 rgb(0 0 0 / 0.05)",
+  transition: theme.transitions.create(["background-color", "box-shadow"], {
+    duration: theme.transitions.duration.short,
+  }),
+  "&:hover": {
+    boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
+  },
+}));
+
+const StyledDrawer = styled(Drawer)(({ theme }) => ({
+  width: drawerWidth,
+  flexShrink: 0,
+  "& .MuiDrawer-paper": {
+    width: drawerWidth,
+    boxSizing: "border-box",
+    background: theme.palette.background.paper,
+    borderRight: `1px solid ${theme.palette.divider}`,
+  },
+}));
+
+const StyledListItem = styled(ListItem)(({ theme }) => ({
+  margin: theme.spacing(0.5, 1),
+  borderRadius: theme.shape.borderRadius,
+  "&:hover": {
+    backgroundColor: theme.palette.action.hover,
+  },
+  "&.Mui-selected": {
+    backgroundColor: theme.palette.primary.main,
+    color: theme.palette.primary.contrastText,
+    "&:hover": {
+      backgroundColor: theme.palette.primary.dark,
+    },
+    "& .MuiListItemIcon-root": {
+      color: theme.palette.primary.contrastText,
+    },
+  },
 }));
 
 const Layout = () => {
@@ -107,8 +191,16 @@ const Layout = () => {
   const { darkMode, toggleDarkMode } = useCustomTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
+  const [open, setOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
+
+  useEffect(() => {
+    // Sync drawer state with media query changes
+    setOpen(!isMobile);
+    // Close mobile drawer when switching to desktop
+    if (!isMobile) setMobileOpen(false);
+  }, [isMobile]);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -152,20 +244,19 @@ const Layout = () => {
   return (
     <Box sx={{ display: "flex" }}>
       <CssBaseline />
-      <AppBar
-        position="fixed"
-        sx={{
-          width: { sm: `calc(100% - ${drawerWidth}px)` },
-          ml: { sm: `${drawerWidth}px` },
-        }}
-      >
+      <StyledAppBar position="fixed" open={open}>
         <Toolbar sx={{ justifyContent: "space-between" }}>
+
+
           <IconButton
             color="inherit"
             aria-label="open drawer"
             edge="start"
-            onClick={handleDrawerToggle}
-            sx={{ mr: 2, display: { sm: "none" } }}
+            onClick={() => {
+              if (!isMobile) setOpen(!open);
+              else setMobileOpen(!mobileOpen);
+            }}
+            sx={{ mr: 2, ...(open && !isMobile && { display: 'none' }) }}
           >
             <MenuIcon />
           </IconButton>
@@ -235,7 +326,7 @@ const Layout = () => {
             </IconButton>
           </Box>
         </Toolbar>
-      </AppBar>
+      </StyledAppBar>
 
       {/* Profile Menu */}
       <Menu
@@ -262,23 +353,36 @@ const Layout = () => {
         component="nav"
         sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
       >
-        <Drawer
+
+
+        <StyledDrawer
+          variant="permanent"
+          open={open}
+          sx={{
+            display: { xs: 'none', sm: 'block' },
+          }}
+        >
+          <DrawerHeader>
+            <IconButton onClick={() => setOpen(false)}>
+              {theme.direction === 'ltr' ? <ChevronLeftIcon /> : <ChevronRightIcon />}
+            </IconButton>
+          </DrawerHeader>
+          <Divider />
+        </StyledDrawer>
+        
+        <StyledDrawer
           variant="temporary"
           open={mobileOpen}
-          onClose={handleDrawerToggle}
+          onClose={() => setMobileOpen(false)}
           ModalProps={{
             keepMounted: true,
           }}
           sx={{
-            display: { xs: "block", sm: "none" },
-            "& .MuiDrawer-paper": {
-              boxSizing: "border-box",
-              width: drawerWidth,
-            },
+            display: { xs: 'block', sm: 'none' },
           }}
         >
           <Sidebar />
-        </Drawer>
+        </StyledDrawer>
 
         <Drawer
           variant="permanent"
@@ -295,23 +399,43 @@ const Layout = () => {
         </Drawer>
       </Box>
 
-      <Box
-        component="main"
-        sx={{
-          flexGrow: 1,
-          p: 3,
-          width: { sm: `calc(100% - ${drawerWidth}px)` },
-          marginTop: "64px",
-          minHeight: "100vh",
-          background:
-            theme.palette.mode === "dark"
-              ? "linear-gradient(135deg, #121212 0%, #1E1E1E 100%)"
-              : "linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)",
-        }}
-      >
+      <Main open={open} sx={{
+
+
+
+
+
+
+
+
+
+
+
+
+        width: { sm: `calc(100% - ${drawerWidth}px)` },
+        marginTop: "64px",
+        minHeight: "100vh",
+        background:
+          theme.palette.mode === "dark"
+            ? "linear-gradient(135deg, #121212 0%, #1E1E1E 100%)"
+            : "linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)"
+      }}>
+        <DrawerHeader />
+
+
+
+
+
+
+
+
+
+
+
+
         <Toolbar />
         <Outlet />
-      </Box>
+      </Main>
     </Box>
   );
 };

@@ -24,7 +24,8 @@ const startServer = async () => {
     // Connect to MongoDB (only if not in test environment)
     if (process.env.NODE_ENV !== "test") {
       await mongoose.connect(process.env.MONGODB_URI);
-      console.log("Connected to MongoDB");
+      console.log("Connected to MongoDB successfully");
+
 
       const PORT = process.env.PORT || 5000;
       const server = app.listen(PORT, () => {
@@ -32,30 +33,27 @@ const startServer = async () => {
       });
 
       // Handle server shutdown gracefully
-      process.on("SIGTERM", () => {
+      process.on("SIGTERM", async () => {
         console.log("SIGTERM signal received. Shutting down gracefully...");
-        server.close(() => {
-          console.log("Server closed");
-          mongoose.connection.close(false, () => {
-            console.log("MongoDB connection closed");
-            process.exit(0);
-          });
-        });
+        await server.close();
+        console.log("Server closed");
+        await mongoose.connection.close();
+        console.log("MongoDB connection closed");
+        process.exit(0);
       });
 
-      process.on("SIGINT", () => {
+      process.on("SIGINT", async () => {
         console.log("SIGINT signal received. Shutting down gracefully...");
-        server.close(() => {
-          console.log("Server closed");
-          mongoose.connection.close(false, () => {
-            console.log("MongoDB connection closed");
-            process.exit(0);
-          });
-        });
+        await server.close();
+        console.log("Server closed");
+        await mongoose.connection.close();
+        console.log("MongoDB connection closed");
+        process.exit(0);
       });
     }
   } catch (error) {
-    console.error("Failed to start server:", error);
+    console.error("Failed to start server due to database connection error:", error);
+
     process.exit(1);
   }
 };

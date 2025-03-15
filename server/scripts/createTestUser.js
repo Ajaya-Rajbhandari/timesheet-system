@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const User = require("../models/User");
+const Department = require("../models/Department");
 require("dotenv").config();
 const jwt = require("jsonwebtoken");
 
@@ -16,32 +17,43 @@ mongoose
 // Create test users
 const createTestUsers = async () => {
   try {
-    // Check if admin user already exists
+    // Get department references first
+    const itDept = await Department.findOne({ code: "IT" });
+    const hrDept = await Department.findOne({ code: "HR" });
+    
+    if (!itDept || !hrDept) {
+      console.error("Required departments not found. Please ensure departments are initialized");
+      process.exit(1);
+    }
+
+    // Create or get admin user first
+    let adminUser;
     const adminExists = await User.findOne({ email: "admin@test.com" });
     if (!adminExists) {
-      // Create admin user
       const adminSalt = await bcrypt.genSalt(10);
       const adminHashedPassword = await bcrypt.hash("admin123", adminSalt);
 
-      const admin = new User({
+      adminUser = new User({
         firstName: "Admin",
         lastName: "User",
         email: "admin@test.com",
         password: adminHashedPassword,
         role: "admin",
-        department: "Management",
+        department: itDept._id,
         position: "System Administrator",
         employeeId: "A001",
         phoneNumber: "123-456-7890",
         isActive: true,
-        createdAt: Date.now(),
+        createdAt: Date.now()
       });
 
-      await admin.save();
+      await adminUser.save();
       console.log("Admin user created successfully");
     } else {
+      adminUser = adminExists;
       console.log("Admin user already exists");
     }
+
 
     // Check if employee user already exists
     const employeeExists = await User.findOne({ email: "employee@test.com" });
@@ -54,12 +66,13 @@ const createTestUsers = async () => {
       );
 
       const employee = new User({
+        createdBy: adminUser._id,
         firstName: "Test",
         lastName: "Employee",
         email: "employee@test.com",
         password: employeeHashedPassword,
         role: "employee",
-        department: "Engineering",
+        department: hrDept._id,
         position: "Software Developer",
         employeeId: "E001",
         phoneNumber: "123-456-7891",
@@ -84,12 +97,13 @@ const createTestUsers = async () => {
       );
 
       const manager = new User({
+        createdBy: adminUser._id,
         firstName: "Test",
         lastName: "Manager",
         email: "manager@test.com",
         password: managerHashedPassword,
         role: "manager",
-        department: "Engineering",
+        department: hrDept._id,
         position: "Engineering Manager",
         employeeId: "M001",
         phoneNumber: "123-456-7892",
@@ -110,6 +124,7 @@ const createTestUsers = async () => {
     if (!existingTestUser) {
       // Create test user
       const testUser = new User({
+        createdBy: adminUser._id,
         firstName: "Test",
         lastName: "User",
         email: "testuser@example.com",
@@ -117,7 +132,7 @@ const createTestUsers = async () => {
         role: "admin",
         employeeId: "EMP001",
         position: "Manager",
-        department: "HR",
+        department: hrDept._id,
       });
 
       // Hash password

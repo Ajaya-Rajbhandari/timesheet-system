@@ -1,3 +1,4 @@
+// import React, { useEffect } from "react";
 import React, { useEffect } from "react";
 import {
   BrowserRouter as Router,
@@ -5,8 +6,9 @@ import {
   Route,
   Navigate,
 } from "react-router-dom";
-import { ThemeProvider, createTheme } from "@mui/material/styles";
+import { ThemeProvider } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
+import theme from "./theme/theme";
 import { LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterMoment } from "@mui/x-date-pickers/AdapterMoment";
 
@@ -31,27 +33,8 @@ import Users from "./pages/Users";
 import ShiftSwaps from "./pages/ShiftSwaps";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
-
-// Create theme for initial loading
-const theme = createTheme({
-  palette: {
-    primary: {
-      main: "#1976d2",
-    },
-    secondary: {
-      main: "#dc004e",
-    },
-    background: {
-      default: "#f5f5f5",
-    },
-  },
-  typography: {
-    fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
-    h5: {
-      fontWeight: 500,
-    },
-  },
-});
+import Register from "./pages/Register";
+// Theme is imported from theme.js
 
 // Protected route component
 const ProtectedRoute = ({ children }) => {
@@ -111,20 +94,18 @@ const AppContent = () => {
 
 function App() {
   return (
-    <ThemeProvider theme={theme}>
+    <CustomThemeProvider>
       <CssBaseline />
       <LocalizationProvider dateAdapter={AdapterMoment}>
         <Router>
           <AuthProvider>
             <AttendanceProvider>
-              <CustomThemeProvider>
-                <AppContent />
-              </CustomThemeProvider>
+              <AppContent />
             </AttendanceProvider>
           </AuthProvider>
         </Router>
       </LocalizationProvider>
-    </ThemeProvider>
+    </CustomThemeProvider>
   );
 }
 
