@@ -12,8 +12,6 @@ import {
   Stack,
   useTheme,
   alpha,
-  Button,
-  useMediaQuery,
   IconButton,
   Tooltip,
   LinearProgress,
@@ -43,7 +41,6 @@ import api from "../services/api";
 
 const Dashboard = () => {
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(moment());
@@ -175,7 +172,7 @@ const Dashboard = () => {
             }}
           >
             <Typography
-              variant={isMobile ? "h5" : "h4"}
+              variant="h4"
               gutterBottom
               sx={{
                 fontWeight: 600,
@@ -195,7 +192,7 @@ const Dashboard = () => {
               {currentTime.format("dddd, MMMM D, YYYY")}
             </Typography>
             <Typography
-              variant={isMobile ? "h3" : "h2"}
+              variant="h4"
               sx={{
                 fontWeight: 700,
                 fontFamily: "monospace",

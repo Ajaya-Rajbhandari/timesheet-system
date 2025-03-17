@@ -79,36 +79,85 @@ router.post("/", auth, isManagerOrAdmin, async (req, res) => {
  * @desc    Get all schedules (for admin/manager)
  * @access  Private (Admin/Manager)
  */
+// Remove this comment ▼
+// Add this before the POST endpoint
+
+// Move the GET endpoint definition before POST
 router.get("/", auth, isManagerOrAdmin, async (req, res) => {
   try {
-    const { startDate, endDate, department } = req.query;
-
-    let query = {};
-
-    // Filter by date range if provided
-    if (startDate && endDate) {
-      query.$or = [
-        {
-          startDate: { $lte: new Date(endDate) },
-          endDate: { $gte: new Date(startDate) },
-        },
-      ];
-    }
-
-    // Filter by department if provided
-    if (department) {
-      query.department = department;
-    }
-
-    const schedules = await Schedule.find(query)
-      .populate("user", "firstName lastName employeeId")
-      .populate("createdBy", "firstName lastName")
-      .sort({ startDate: 1 });
-
+    const schedules = await Schedule.find()
+      .populate('user', 'firstName lastName')  // Fix field name from 'userId' to 'user'
+      .sort({ startDate: -1 });
     res.json(schedules);
   } catch (err) {
-    console.error("Get schedules error:", err.message);
-    res.status(500).json({ message: "Server error" });
+    console.error(err);
+    res.status(500).json({ message: "Error retrieving schedules" });
+  }
+});
+
+/** 
+ * @route   POST api/schedules
+ * @desc    Create a new schedule
+ * @access  Private (Admin/Manager)
+ */
+router.post("/", auth, isManagerOrAdmin, async (req, res) => {
+  try {
+    const {
+      userId,
+      startDate,
+      endDate,
+      startTime,
+      endTime,
+      type,
+      days,
+      notes,
+    } = req.body;
+
+    // Validate that userId is provided
+    if (!userId) {
+      return res.status(400).json({ message: "Employee ID is required" });
+    }
+
+    // Check if the user exists
+    const targetUser = await User.findById(userId);
+    if (!targetUser) {
+      return res.status(404).json({ message: "Employee not found" });
+    }
+
+    console.log("Creating schedule for user:", userId);
+
+    // Create new schedule
+    const schedule = new Schedule({
+      user: userId,
+      startDate: new Date(startDate),
+      endDate: new Date(endDate),
+      startTime,
+      endTime,
+      type,
+      days,
+      notes,
+      createdBy: req.user.id,
+      updatedBy: req.user.id,
+    });
+
+    await schedule.save();
+
+    // Populate user and creator details before sending response
+    await schedule.populate([
+      { path: "user", select: "firstName lastName employeeId" },
+      { path: "createdBy", select: "firstName lastName" },
+    ]);
+
+    res.json(schedule);
+  } catch (err) {
+    console.error("Create schedule error details:", {
+      error: err.message,
+      validation: err.errors,
+    });
+    res.status(500).json({
+      message: err.message || "Server error",
+      details: err.errors,
+    });
   }
 });
 

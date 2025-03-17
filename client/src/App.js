@@ -1,5 +1,5 @@
-// import React, { useEffect } from "react";
 import React, { useEffect } from "react";
+import { Box } from '@mui/material';
 import {
   BrowserRouter as Router,
   Routes,
@@ -9,11 +9,10 @@ import {
 import { ThemeProvider } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
 import theme from "./theme/theme";
-import { LocalizationProvider } from "@mui/x-date-pickers";
-import { AdapterMoment } from "@mui/x-date-pickers/AdapterMoment";
 
 // Context Providers
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { DepartmentProvider } from './context/DepartmentContext';
 import { AttendanceProvider } from "./contexts/AttendanceContext";
 import { CustomThemeProvider } from "./context/ThemeContext";
 
@@ -33,8 +32,6 @@ import Users from "./pages/Users";
 import ShiftSwaps from "./pages/ShiftSwaps";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
-import Register from "./pages/Register";
-// Theme is imported from theme.js
 
 // Protected route component
 const ProtectedRoute = ({ children }) => {
@@ -56,7 +53,6 @@ const ProtectedRoute = ({ children }) => {
 const AppContent = () => {
   const { checkAuthStatus } = useAuth();
 
-  // Check auth status when app loads
   useEffect(() => {
     console.log("App mounted, checking auth status");
     checkAuthStatus();
@@ -76,7 +72,7 @@ const AppContent = () => {
           </ProtectedRoute>
         }
       >
-        <Route index element={<Navigate to="/dashboard" replace />} />
+        <Route index element={<Navigate to="/dashboard" />} />
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="attendance" element={<Attendance />} />
         <Route path="schedule" element={<Schedule />} />
@@ -94,18 +90,22 @@ const AppContent = () => {
 
 function App() {
   return (
-    <CustomThemeProvider>
-      <CssBaseline />
-      <LocalizationProvider dateAdapter={AdapterMoment}>
-        <Router>
-          <AuthProvider>
-            <AttendanceProvider>
-              <AppContent />
-            </AttendanceProvider>
-          </AuthProvider>
-        </Router>
-      </LocalizationProvider>
-    </CustomThemeProvider>
+    <AuthProvider>
+      <DepartmentProvider>
+        <AttendanceProvider>
+          <ThemeProvider theme={theme}>
+            <CustomThemeProvider>
+              <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+                <CssBaseline />
+                <Router>
+                  <AppContent />
+                </Router>
+              </Box>
+            </CustomThemeProvider>
+          </ThemeProvider>
+        </AttendanceProvider>
+      </DepartmentProvider>
+    </AuthProvider>
   );
 }
 

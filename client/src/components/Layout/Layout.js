@@ -1,12 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   Box,
   AppBar,
   Toolbar,
   Typography,
   Drawer,
-  List,
-  ListItem,
   ListItemIcon,
   ListItemText,
   IconButton,
@@ -15,20 +13,10 @@ import {
   Menu,
   MenuItem,
   CssBaseline,
-  useMediaQuery,
   useTheme,
-  FormControlLabel,
   Switch,
-  Chip,
 } from "@mui/material";
 import { useNavigate, Outlet } from "react-router-dom";
-import MenuIcon from "@mui/icons-material/Menu";
-import DashboardIcon from "@mui/icons-material/Dashboard";
-import AccessTimeIcon from "@mui/icons-material/AccessTime";
-import EventIcon from "@mui/icons-material/Event";
-import AssessmentIcon from "@mui/icons-material/Assessment";
-import PeopleIcon from "@mui/icons-material/People";
-import AccountCircleIcon from "@mui/icons-material/AccountCircle";
 import {
   Person as PersonIcon,
   Logout as LogoutIcon,
@@ -40,7 +28,7 @@ import {
 import { useAuth } from "../../contexts/AuthContext";
 import { useAttendance } from "../../contexts/AttendanceContext";
 import { useTheme as useCustomTheme } from "../../context/ThemeContext";
-import Sidebar from "./Sidebar";
+import Sidebar from './Sidebar';  // Make sure this path is correct
 import { styled } from "@mui/material/styles";
 
 const drawerWidth = 260;
@@ -53,13 +41,14 @@ const Main = styled('main', { shouldForwardProp: (prop) => prop !== 'open' })(
       easing: theme.transitions.easing.sharp,
       duration: theme.transitions.duration.leavingScreen,
     }),
-    marginLeft: `-${drawerWidth}px`,
+    width: '100%',
     ...(open && {
+      marginLeft: `${drawerWidth}px`,
+      width: `calc(100% - ${drawerWidth}px)`,
       transition: theme.transitions.create('margin', {
         easing: theme.transitions.easing.easeOut,
         duration: theme.transitions.duration.enteringScreen,
       }),
-      marginLeft: 0,
     }),
   }),
 );
@@ -71,14 +60,23 @@ const StyledAppBar = styled(AppBar, {
     easing: theme.transitions.easing.sharp,
     duration: theme.transitions.duration.leavingScreen,
   }),
+  backdropFilter: 'blur(8px)',
+  backgroundColor: 'rgba(255, 255, 255, 0.9)',
+  borderBottom: '1px solid',
+  borderColor: theme.palette.divider,
   ...(open && {
     width: `calc(100% - ${drawerWidth}px)`,
     marginLeft: `${drawerWidth}px`,
-    transition: theme.transitions.create(['margin', 'width'], {
-      easing: theme.transitions.easing.easeOut,
-      duration: theme.transitions.duration.enteringScreen,
-    }),
   }),
+}));
+
+const UserInfo = styled(Box)(({ theme }) => ({
+  display: "flex",
+  alignItems: "center",
+  gap: theme.spacing(2),
+  padding: theme.spacing(1.5, 2),
+  borderRadius: theme.shape.borderRadius,
+  transition: 'all 0.2s ease-in-out',
 }));
 
 const DrawerHeader = styled('div')(({ theme }) => ({
@@ -89,7 +87,17 @@ const DrawerHeader = styled('div')(({ theme }) => ({
   justifyContent: 'flex-end',
 }));
 
-// Custom styled components
+const StyledDrawer = styled(Drawer)(({ theme }) => ({
+  width: drawerWidth,
+  flexShrink: 0,
+  "& .MuiDrawer-paper": {
+    width: drawerWidth,
+    boxSizing: "border-box",
+    background: theme.palette.background.paper,
+    borderRight: `1px solid ${theme.palette.divider}`,
+  },
+}));
+
 const StyledSwitch = styled(Switch)(({ theme }) => ({
   width: 62,
   height: 34,
@@ -137,74 +145,15 @@ const StyledSwitch = styled(Switch)(({ theme }) => ({
   },
 }));
 
-const UserInfo = styled(Box)(({ theme }) => ({
-  display: "flex",
-  alignItems: "center",
-  gap: theme.spacing(2),
-  padding: theme.spacing(1.5, 2),
-  color: theme.palette.text.primary,
-  background: theme.palette.background.paper,
-  borderRadius: theme.shape.borderRadius,
-  boxShadow: "0 1px 2px 0 rgb(0 0 0 / 0.05)",
-  transition: theme.transitions.create(["background-color", "box-shadow"], {
-    duration: theme.transitions.duration.short,
-  }),
-  "&:hover": {
-    boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
-  },
-}));
-
-const StyledDrawer = styled(Drawer)(({ theme }) => ({
-  width: drawerWidth,
-  flexShrink: 0,
-  "& .MuiDrawer-paper": {
-    width: drawerWidth,
-    boxSizing: "border-box",
-    background: theme.palette.background.paper,
-    borderRight: `1px solid ${theme.palette.divider}`,
-  },
-}));
-
-const StyledListItem = styled(ListItem)(({ theme }) => ({
-  margin: theme.spacing(0.5, 1),
-  borderRadius: theme.shape.borderRadius,
-  "&:hover": {
-    backgroundColor: theme.palette.action.hover,
-  },
-  "&.Mui-selected": {
-    backgroundColor: theme.palette.primary.main,
-    color: theme.palette.primary.contrastText,
-    "&:hover": {
-      backgroundColor: theme.palette.primary.dark,
-    },
-    "& .MuiListItemIcon-root": {
-      color: theme.palette.primary.contrastText,
-    },
-  },
-}));
-
 const Layout = () => {
   const { user, logout, isAdmin, isManager } = useAuth();
   const { getStatusText, getStatusColor } = useAttendance();
   const navigate = useNavigate();
   const theme = useTheme();
   const { darkMode, toggleDarkMode } = useCustomTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-
-  const [open, setOpen] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
+  
+  const [open, setOpen] = useState(true);
   const [anchorEl, setAnchorEl] = useState(null);
-
-  useEffect(() => {
-    // Sync drawer state with media query changes
-    setOpen(!isMobile);
-    // Close mobile drawer when switching to desktop
-    if (!isMobile) setMobileOpen(false);
-  }, [isMobile]);
-
-  const handleDrawerToggle = () => {
-    setMobileOpen(!mobileOpen);
-  };
 
   const handleProfileMenuOpen = (event) => {
     setAnchorEl(event.currentTarget);
@@ -219,121 +168,69 @@ const Layout = () => {
     navigate("/login");
   };
 
-  const menuItems = [
-    { text: "Dashboard", icon: <DashboardIcon />, path: "/" },
-    { text: "Attendance", icon: <AccessTimeIcon />, path: "/attendance" },
-    { text: "Schedule", icon: <EventIcon />, path: "/schedule" },
-    { text: "Time Off", icon: <EventIcon />, path: "/timeoff" },
-    {
-      text: "Reports",
-      icon: <AssessmentIcon />,
-      path: "/reports",
-      adminOnly: true,
-    },
-  ];
-
-  if (isAdmin || isManager) {
-    menuItems.push({
-      text: "Users",
-      icon: <PeopleIcon />,
-      path: "/users",
-      adminOnly: true,
-    });
-  }
-
   return (
     <Box sx={{ display: "flex" }}>
       <CssBaseline />
-      <StyledAppBar position="fixed" open={open}>
-        <Toolbar sx={{ justifyContent: "space-between" }}>
-
-
-          <IconButton
-            color="inherit"
-            aria-label="open drawer"
-            edge="start"
-            onClick={() => {
-              if (!isMobile) setOpen(!open);
-              else setMobileOpen(!mobileOpen);
-            }}
-            sx={{ mr: 2, ...(open && !isMobile && { display: 'none' }) }}
-          >
-            <MenuIcon />
-          </IconButton>
-
+      <StyledAppBar position="fixed" open={open} elevation={0}>
+        <Toolbar sx={{ justifyContent: "space-between", minHeight: '70px' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            {/* Removed the menu button completely */}
+          </Box>
+  
           <UserInfo>
-            <Avatar
-              sx={{
-                width: 40,
-                height: 40,
-                bgcolor: "primary.main",
-                border: "2px solid",
-                borderColor: "background.paper",
-              }}
-              src={
-                user?.profileImage
-                  ? `${
-                      process.env.REACT_APP_API_URL || ""
-                    }/api/upload/profile/${user.profileImage}`
-                  : undefined
-              }
-            >
-              {user?.firstName?.charAt(0) || "U"}
-            </Avatar>
-            <Box>
-              <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                {user ? `${user.firstName} ${user.lastName}` : "User"}
-              </Typography>
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                <Typography variant="caption" sx={{ opacity: 0.8 }}>
-                  {isAdmin
-                    ? "Administrator"
-                    : isManager
-                      ? "Manager"
-                      : "Employee"}
-                </Typography>
-                <Chip
-                  label={getStatusText()}
-                  size="small"
+            <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+              <StyledSwitch
+                checked={darkMode}
+                onChange={toggleDarkMode}
+                icon={<LightModeIcon />}
+                checkedIcon={<DarkModeIcon />}
+              />
+              
+              <Box sx={{ height: '24px', width: '1px', bgcolor: 'divider' }} />
+  
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, cursor: 'pointer' }} onClick={handleProfileMenuOpen}>
+                <Avatar
                   sx={{
-                    height: 20,
-                    fontSize: "0.7rem",
-                    bgcolor: getStatusColor(),
-                    color: "white",
+                    width: 40,
+                    height: 40,
+                    bgcolor: "primary.main",
+                    border: "2px solid",
+                    borderColor: "background.paper",
                   }}
-                />
+                  src={user?.profileImage ? `${process.env.REACT_APP_API_URL || ""}/api/upload/profile/${user.profileImage}` : undefined}
+                >
+                  {user?.firstName?.charAt(0) || "U"}
+                </Avatar>
+                <Box>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                    {user ? `${user.firstName} ${user.lastName}` : "User"}
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                    {isAdmin ? "Administrator" : isManager ? "Manager" : "Employee"}
+                  </Typography>
+                </Box>
               </Box>
             </Box>
           </UserInfo>
-
-          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-            <StyledSwitch
-              checked={darkMode}
-              onChange={toggleDarkMode}
-              icon={<LightModeIcon />}
-              checkedIcon={<DarkModeIcon />}
-            />
-
-            <IconButton
-              size="large"
-              edge="end"
-              aria-label="account menu"
-              aria-haspopup="true"
-              onClick={handleProfileMenuOpen}
-              color="inherit"
-            >
-              <AccountCircleIcon />
-            </IconButton>
-          </Box>
         </Toolbar>
       </StyledAppBar>
-
+  
       {/* Profile Menu */}
       <Menu
         anchorEl={anchorEl}
         open={Boolean(anchorEl)}
         onClose={handleProfileMenuClose}
         onClick={handleProfileMenuClose}
+        PaperProps={{
+          sx: {
+            mt: 1.5,
+            minWidth: 180,
+            borderRadius: 2,
+            boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
+          },
+        }}
+        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
       >
         <MenuItem onClick={() => navigate("/profile")}>
           <ListItemIcon>
@@ -348,92 +245,33 @@ const Layout = () => {
           <ListItemText>Logout</ListItemText>
         </MenuItem>
       </Menu>
-
-      <Box
-        component="nav"
-        sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
-      >
-
-
+  
+      {/* Single permanent drawer for larger screens only */}
+      <Box component="nav" sx={{ width: drawerWidth, flexShrink: 0 }}>
         <StyledDrawer
           variant="permanent"
           open={open}
-          sx={{
-            display: { xs: 'none', sm: 'block' },
-          }}
         >
           <DrawerHeader>
-            <IconButton onClick={() => setOpen(false)}>
-              {theme.direction === 'ltr' ? <ChevronLeftIcon /> : <ChevronRightIcon />}
-            </IconButton>
+            <Box sx={{ p: 2, width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography variant="h6" color="primary" fontWeight="bold">
+                Timesheet System
+              </Typography>
+              <IconButton onClick={() => setOpen(false)}>
+                {theme.direction === 'ltr' ? <ChevronLeftIcon /> : <ChevronRightIcon />}
+              </IconButton>
+            </Box>
           </DrawerHeader>
           <Divider />
-        </StyledDrawer>
-        
-        <StyledDrawer
-          variant="temporary"
-          open={mobileOpen}
-          onClose={() => setMobileOpen(false)}
-          ModalProps={{
-            keepMounted: true,
-          }}
-          sx={{
-            display: { xs: 'block', sm: 'none' },
-          }}
-        >
           <Sidebar />
         </StyledDrawer>
-
-        <Drawer
-          variant="permanent"
-          sx={{
-            display: { xs: "none", sm: "block" },
-            "& .MuiDrawer-paper": {
-              boxSizing: "border-box",
-              width: drawerWidth,
-            },
-          }}
-          open
-        >
-          <Sidebar />
-        </Drawer>
       </Box>
-
-      <Main open={open} sx={{
-
-
-
-
-
-
-
-
-
-
-
-
-        width: { sm: `calc(100% - ${drawerWidth}px)` },
-        marginTop: "64px",
-        minHeight: "100vh",
-        background:
-          theme.palette.mode === "dark"
-            ? "linear-gradient(135deg, #121212 0%, #1E1E1E 100%)"
-            : "linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)"
+      
+      <Main open={open} sx={{ 
+        width: '100%', 
+        maxWidth: '100%',
       }}>
         <DrawerHeader />
-
-
-
-
-
-
-
-
-
-
-
-
-        <Toolbar />
         <Outlet />
       </Main>
     </Box>

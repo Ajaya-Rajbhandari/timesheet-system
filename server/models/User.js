@@ -74,9 +74,10 @@ const UserSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
+    // Add this to your User schema
     profileImage: {
       type: String,
-      default: "/uploads/profile-images/default-profile.png",
+      default: '/uploads/profile-images/default-profile.png'
     },
     isActive: {
       type: Boolean,

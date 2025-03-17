@@ -435,145 +435,25 @@ const Attendance = () => {
           </Typography>
         </Box>
         <CardContent>
-          <Grid container spacing={3} alignItems="center">
+          <Grid container spacing={3}>
             <Grid item xs={12} md={6}>
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  mb: { xs: 2, md: 0 },
-                }}
-              >
-                <ClockIcon
-                  sx={{ fontSize: 40, mr: 2, color: "primary.main" }}
-                />
-                <Box>
-                  <Typography variant="body2" color="textSecondary">
-                    {currentStatus.isClockedIn
-                      ? "Clocked in at:"
-                      : "Last clock out:"}
-                  </Typography>
-                  <Typography variant="h6">
-                    {currentStatus.isClockedIn && currentStatus.clockInTime
-                      ? formatTime(currentStatus.clockInTime)
-                      : currentStatus.clockOutTime
-                        ? formatTime(currentStatus.clockOutTime)
-                        : "Not available"}
-                  </Typography>
-                </Box>
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="body1" color="textSecondary">
+                  Current Status:
+                </Typography>
+                <Typography variant="h6">{getStatusText()}</Typography>
               </Box>
             </Grid>
-
-            {currentStatus.isClockedIn && (
-              <Grid item xs={12} md={6}>
-                <Box sx={{ display: "flex", alignItems: "center" }}>
-                  <TimerIcon
-                    sx={{ fontSize: 40, mr: 2, color: "primary.main" }}
-                  />
-                  <Box>
-                    <Typography variant="body2" color="textSecondary">
-                      Time elapsed:
-                    </Typography>
-                    <Typography variant="h6" sx={{ fontFamily: "monospace" }}>
-                      {getElapsedTime()}
-                    </Typography>
-                  </Box>
-                </Box>
-              </Grid>
-            )}
-
-            {currentStatus.onBreak && (
-              <Grid item xs={12}>
-                <Box
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    mt: 1,
-                  }}
-                >
-                  <Chip
-                    icon={<BreakIcon />}
-                    label={`On Break since ${formatTime(
-                      currentStatus.breakStartTime,
-                    )}`}
-                    color="warning"
-                    variant="outlined"
-                    sx={{ fontSize: "1rem", py: 2 }}
-                  />
-                </Box>
-              </Grid>
-            )}
-
-            <Grid item xs={12}>
-              <Box
-                sx={{
-                  display: "flex",
-                  justifyContent: "center",
-                  mt: 2,
-                  flexDirection: "column",
-                  alignItems: "center",
-                }}
-              >
-                {(loading || currentStatus.isLoading) && (
-                  <CircularProgress sx={{ mb: 2 }} />
-                )}
-
-                {!currentStatus.isClockedIn ? (
-                  <Button
-                    variant="contained"
-                    color="success"
-                    size="large"
-                    startIcon={<ClockIcon />}
-                    onClick={handleClockIn}
-                    disabled={loading || currentStatus.isLoading}
-                    sx={{ minWidth: 150 }}
-                  >
-                    Clock In
-                  </Button>
-                ) : (
-                  <>
-                    <ButtonGroup
-                      variant="contained"
-                      size="large"
-                      sx={{ mb: 2 }}
-                    >
-                      {!currentStatus.onBreak ? (
-                        <Button
-                          color="warning"
-                          startIcon={<BreakIcon />}
-                          onClick={handleStartBreak}
-                          disabled={loading || currentStatus.isLoading}
-                          sx={{ minWidth: 150 }}
-                        >
-                          Take a Break
-                        </Button>
-                      ) : (
-                        <Button
-                          color="info"
-                          startIcon={<EndBreakIcon />}
-                          onClick={handleEndBreak}
-                          disabled={loading || currentStatus.isLoading}
-                          sx={{ minWidth: 150 }}
-                        >
-                          End Break
-                        </Button>
-                      )}
-                    </ButtonGroup>
-
-                    <Button
-                      variant="contained"
-                      color="error"
-                      size="large"
-                      startIcon={<ClockIcon />}
-                      onClick={handleClockOut}
-                      disabled={loading || currentStatus.isLoading}
-                      sx={{ minWidth: 150 }}
-                    >
-                      Clock Out
-                    </Button>
-                  </>
-                )}
+            <Grid item xs={12} md={6}>
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="body1" color="textSecondary">
+                  Today's Hours:
+                </Typography>
+                <Typography variant="h6">
+                  {calculateDailyTotalHours(
+                    groupedAttendance[moment().format("YYYY-MM-DD")] || []
+                  )}
+                </Typography>
               </Box>
             </Grid>
           </Grid>
@@ -595,160 +475,74 @@ const Attendance = () => {
         }}
       >
         <CardContent>
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              mb: 3,
-            }}
-          >
-            <Typography variant="h6">Attendance History</Typography>
-            <DatePicker
-              views={["month", "year"]}
-              value={selectedMonth}
-              onChange={(newValue) => setSelectedMonth(newValue)}
-              slotProps={{ textField: { size: "small" } }}
-            />
-          </Box>
+          <Grid container spacing={3}>
+            <Grid item xs={6}>
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="body1" color="textSecondary">
+                  Clock In Time:
+                </Typography>
+                <Typography variant="h6">
+                  {currentStatus.clockInTime
+                    ? formatTime(currentStatus.clockInTime)
+                    : "Not clocked in"}
+                </Typography>
+              </Box>
+            </Grid>
+            
+            <Grid item xs={6}>
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="body1" color="textSecondary">
+                  Elapsed Time:
+                </Typography>
+                <Typography variant="h6">{getElapsedTime()}</Typography>
+              </Box>
+            </Grid>
+          </Grid>
 
-          {Object.keys(groupedAttendance).length > 0 ? (
-            Object.keys(groupedAttendance)
-              .sort((a, b) => moment(b).diff(moment(a))) // Sort dates in descending order
-              .map((date) => (
-                <Accordion key={date} sx={{ mb: 2, boxShadow: 1 }}>
-                  <AccordionSummary
-                    expandIcon={<ExpandMoreIcon />}
-                    aria-controls={`attendance-${date}-content`}
-                    id={`attendance-${date}-header`}
-                    sx={{
-                      backgroundColor:
-                        theme.palette.mode === "dark"
-                          ? "rgba(255, 255, 255, 0.05)"
-                          : "rgba(0, 0, 0, 0.03)",
-                    }}
+          <Box sx={{ mt: 3, display: "flex", justifyContent: "center" }}>
+            <ButtonGroup variant="contained" size="large">
+              {!currentStatus.isClockedIn ? (
+                <Button
+                  onClick={handleClockIn}
+                  startIcon={<ClockIcon />}
+                  color="primary"
+                  disabled={loading}
+                >
+                  Clock In
+                </Button>
+              ) : (
+                <>
+                  {!currentStatus.onBreak ? (
+                    <Button
+                      onClick={handleStartBreak}
+                      startIcon={<BreakIcon />}
+                      color="warning"
+                      disabled={loading}
+                    >
+                      Start Break
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={handleEndBreak}
+                      startIcon={<EndBreakIcon />}
+                      color="info"
+                      disabled={loading}
+                    >
+                      End Break
+                    </Button>
+                  )}
+                  <Button
+                    onClick={handleClockOut}
+                    startIcon={<TimerIcon />}
+                    color="error"
+                    disabled={loading}
                   >
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        width: "100%",
-                        justifyContent: "space-between",
-                      }}
-                    >
-                      <Box sx={{ display: "flex", alignItems: "center" }}>
-                        <CalendarIcon sx={{ mr: 1 }} />
-                        <Typography
-                          variant="subtitle1"
-                          sx={{ fontWeight: "bold" }}
-                        >
-                          {moment(date).format("dddd, MMMM D, YYYY")}
-                        </Typography>
-                      </Box>
-                      <Chip
-                        label={`${calculateDailyTotalHours(
-                          groupedAttendance[date],
-                        )} hours`}
-                        color="primary"
-                        size="small"
-                        sx={{ fontWeight: "bold" }}
-                      />
-                    </Box>
-                  </AccordionSummary>
-                  <AccordionDetails>
-                    <TableContainer
-                      component={Paper}
-                      sx={{
-                        background: "transparent",
-                        boxShadow: "none",
-                      }}
-                    >
-                      <Table size="small">
-                        <TableHead>
-                          <TableRow>
-                            <TableCell>Clock In</TableCell>
-                            <TableCell>Clock Out</TableCell>
-                            <TableCell>Total Hours</TableCell>
-                            <TableCell>Breaks</TableCell>
-                            <TableCell>Status</TableCell>
-                          </TableRow>
-                        </TableHead>
-                        <TableBody>
-                          {groupedAttendance[date].map((record) => (
-                            <TableRow key={record._id}>
-                              <TableCell>
-                                {moment(record.clockIn).format("HH:mm:ss")}
-                              </TableCell>
-                              <TableCell>
-                                {record.clockOut
-                                  ? moment(record.clockOut).format("HH:mm:ss")
-                                  : "-"}
-                              </TableCell>
-                              <TableCell>
-                                {record.clockOut
-                                  ? (
-                                      moment
-                                        .duration(
-                                          moment(record.clockOut).diff(
-                                            moment(record.clockIn),
-                                          ),
-                                        )
-                                        .asHours() -
-                                      calculateTotalBreakTime(record.breaks) /
-                                        60
-                                    ).toFixed(2)
-                                  : "-"}
-                              </TableCell>
-                              <TableCell>
-                                {record.breaks && record.breaks.length > 0 ? (
-                                  <Chip
-                                    label={`${record.breaks.length} break${
-                                      record.breaks.length > 1 ? "s" : ""
-                                    } (${calculateTotalBreakTime(
-                                      record.breaks,
-                                    )} min)`}
-                                    color="warning"
-                                    size="small"
-                                    onClick={() =>
-                                      handleBreakDetailsClick(record)
-                                    }
-                                  />
-                                ) : (
-                                  "-"
-                                )}
-                              </TableCell>
-                              <TableCell>
-                                <Chip
-                                  label={
-                                    record.status ||
-                                    (record.clockOut ? "Completed" : "Active")
-                                  }
-                                  color={
-                                    record.status === "Present" ||
-                                    record.clockOut
-                                      ? "success"
-                                      : record.status === "Late"
-                                        ? "warning"
-                                        : "error"
-                                  }
-                                  size="small"
-                                />
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </TableContainer>
-                  </AccordionDetails>
-                </Accordion>
-              ))
-          ) : (
-            <Box sx={{ textAlign: "center", py: 4 }}>
-              <Typography variant="body1" color="textSecondary">
-                No attendance records found for the selected month.
-              </Typography>
-            </Box>
-          )}
+                    Clock Out
+                  </Button>
+                </>
+              )}
+            </ButtonGroup>
+          </Box>
         </CardContent>
       </Card>
 

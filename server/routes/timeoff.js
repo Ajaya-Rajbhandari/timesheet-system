@@ -90,6 +90,12 @@ router.get("/", auth, isManagerOrAdmin, async (req, res) => {
 
     let query = {};
 
+    // For managers, only show requests from their department
+    if (req.user.role === "manager") {
+      const user = await User.findById(req.user.id);
+      query.department = user.department;
+    }
+
     // Filter by status if provided
     if (status) {
       query.status = status;
@@ -106,7 +112,14 @@ router.get("/", auth, isManagerOrAdmin, async (req, res) => {
     }
 
     const timeOffRequests = await TimeOff.find(query)
-      .populate("user", "firstName lastName employeeId department")
+      .populate({
+        path: "user",
+        select: "firstName lastName employeeId department",
+        populate: {
+          path: "department",
+          select: "name"
+        }
+      })
       .populate("approvedBy", "firstName lastName")
       .sort({ createdAt: -1 });
 
@@ -451,6 +464,77 @@ router.get("/user/:userId", auth, isSelfOrHigherRole, async (req, res) => {
   } catch (err) {
     console.error("Get user time-off requests error:", err.message);
     res.status(500).json({ message: "Server error" });
+  }
+});
+
+/** 
+ * @route   PUT api/timeoff/:id/approve
+ * @desc    Approve a time off request
+ * @access  Private (Manager/Admin)
+ */
+router.put('/:id/approve', auth, isManagerOrAdmin, async (req, res) => {
+  try {
+    const timeOff = await TimeOff.findById(req.params.id);
+    
+    // Self-approval check
+    if (timeOff.user.toString() === req.user.id) {
+      return res.status(403).json({
+        message: "Cannot approve your own time-off request",
+        errorCode: "SELF_APPROVAL_DISALLOWED"
+      });
+    }
+
+    // Approval logic
+    if (timeOff.status !== 'pending') {
+      return res.status(400).json({
+        message: `Request already ${timeOff.status}`,
+        currentStatus: timeOff.status
+      });
+    }
+
+    timeOff.status = 'approved';
+    timeOff.approvedBy = req.user.id;
+    await timeOff.save();
+
+    const populatedRequest = await TimeOff.findById(timeOff._id)
+      .populate('approvedBy', 'firstName lastName email');
+
+    res.json({
+      message: 'Time off approved',
+      timeOff: populatedRequest
+    });
+  } catch (err) {
+    console.error('Approval error:', err);
+    res.status(500).json({ 
+      message: 'Server error during approval',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
+});
+
+// Add this with other routes
+router.get('/my-requests', auth, async (req, res) => {
+  try {
+    const { year } = req.query;
+    
+    const query = { 
+      user: req.user.id,
+      ...(year && {
+        startDate: {
+          $gte: new Date(`${year}-01-01`),
+          $lte: new Date(`${year}-12-31`)
+        }
+      })
+    };
+
+    const requests = await TimeOff.find(query)
+      .sort({ startDate: -1 })
+      .populate('approvedBy', 'firstName lastName');
+
+    res.json(requests);
+  } catch (err) {
+    console.error('Error fetching time-off requests:', err);
+    res.status(500).json({ message: 'Error retrieving your requests' });
   }
 });
 

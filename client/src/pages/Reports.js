@@ -66,6 +66,7 @@ const CHART_COLORS = [
   "#795548",
 ];
 
+
 const Reports = () => {
   const navigate = useNavigate();
   const { isAuthenticated, user, isAdmin, isManager } = useAuth();

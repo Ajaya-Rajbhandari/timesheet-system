@@ -7,6 +7,7 @@ const path = require("path");
 const validateEnv = require("./utils/validateEnv");
 const { auditLogger } = require("./middleware/auditLogger");
 const securityHeaders = require("./middleware/securityHeaders");
+const profileRoutes = require('./routes/profileRoutes');
 
 // Load environment variables
 dotenv.config();
@@ -56,8 +57,8 @@ const authLimiter = rateLimit({
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-// Static files
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+// Static file serving - Move this up before routes
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Audit logging
 app.use(auditLogger);
@@ -71,7 +72,7 @@ app.use("/api/attendance", require("./routes/attendance"));
 app.use("/api/timeoff", require("./routes/timeoff"));
 app.use("/api/reports", require("./routes/reports"));
 app.use("/api/shift-swap", require("./routes/shiftSwap"));
-app.use("/api/profile", require("./routes/profile"));
+app.use("/api/profile", profileRoutes);
 app.use("/api/upload", require("./routes/upload"));
 
 // Error handling middleware
