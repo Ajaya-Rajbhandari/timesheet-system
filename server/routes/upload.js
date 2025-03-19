@@ -51,8 +51,10 @@ router.post(
         user: user,
       });
     } catch (err) {
-      console.error("Error uploading profile image:", err.message, { requestBody: req.body, userId: req.user.id });
-
+      console.error("Error uploading profile image:", err.message, {
+        requestBody: req.body,
+        userId: req.user.id,
+      });
 
       res.status(500).json({ message: "Server error" });
     }

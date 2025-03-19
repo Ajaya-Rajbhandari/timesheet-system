@@ -159,142 +159,146 @@ router.post("/register", async (req, res) => {
  * @desc    Authenticate user & get token
  * @access  Public
  */
-router.post(
-  "/login",
-  async (req, res) => {
-    try {
-      // Validate request body first
-      if (!req.body || typeof req.body !== 'object') {
-        return res.status(400).json({ message: "Invalid request format" });
-      }
+router.post("/login", async (req, res) => {
+  try {
+    // Validate request body first
+    if (!req.body || typeof req.body !== "object") {
+      return res.status(400).json({ message: "Invalid request format" });
+    }
 
-      // Safely destructure with fallbacks
-      const { email = "", password = "" } = req.body;
+    // Safely destructure with fallbacks
+    const { email = "", password = "" } = req.body;
 
-      // Validate required fields using existing pattern
-      if (!email.trim() || !password.trim()) {
-        return res.status(400).json({ 
-          message: "Email and password are required",
-          errorCode: "MISSING_CREDENTIALS"
-        });
-      }
-
-      console.log("Login attempt:", { email, hasPassword: !!password });
-
-      // Validate required fields
-      if (!email || !password) {
-        console.log("Missing fields:", {
-          hasEmail: !!email,
-          hasPassword: !!password,
-        });
-        return res
-          .status(400)
-          .json({ message: "Please provide both email and password" });
-      }
-
-      // Check if user exists
-      const user = await User.findOne({ email }).populate("department", "name");
-      console.log("User found:", !!user);
-
-      if (!user) {
-        return res.status(401).json({ message: "Invalid credentials" });
-      }
-
-      // Check if user is active
-      if (!user.isActive) {
-        console.log("Inactive user attempted login:", email);
-        return res.status(403).json({
-          message:
-            "Your account has been deactivated. Please contact your administrator.",
-        });
-      }
-
-      // Check password for all users
-      const isMatch = await user.comparePassword(password);
-      console.log("Password match:", isMatch);
-
-      if (!isMatch) {
-        return res.status(401).json({ message: "Invalid credentials" });
-      }
-
-      // Update last login time
-      user.lastLogin = Date.now();
-
-      // Check if createdBy is missing and set a default value if needed
-      if (!user.createdBy) {
-        console.log("Setting default createdBy for user:", user.email);
-        // Set createdBy to the user's own ID as a fallback
-        user.createdBy = user._id;
-      }
-
-      await user.save();
-
-      // Create JWT payload
-      const payload = {
-        userId: user.id,
-        role: user.role,
-      };
-
-      // Sign token with 24 hour expiry
-      const token = jwt.sign(payload, process.env.JWT_SECRET || 'development_secret', {
-        expiresIn: "24h",
-      });
-
-      res.json({
-        token,
-        user: {
-          id: user.id,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          email: user.email,
-          role: user.role,
-          department: user.department,
-          position: user.position,
-          employeeId: user.employeeId,
-        },
-      });
-    } catch (err) {
-      console.error("Login error:", err.stack);
-      
-      // Handle database connection errors
-      if (err.name.startsWith("Mongo")) {
-        return res.status(503).json({ 
-          message: "Database service unavailable",
-          errorCode: "DB_SERVICE_UNAVAILABLE"
-        });
-      }
-
-      // Handle JWT configuration errors
-      if (err.name === "JsonWebTokenError") {
-        return res.status(500).json({ 
-          message: "Server configuration error - contact administrator",
-          errorCode: "JWT_CONFIG_MISSING"
-        });
-      }
-
-      // Handle mongoose validation errors from user.save()
-      if (err.name === "ValidationError") {
-        const validationErrors = Object.values(err.errors).map(
-          (error) => error.message,
-        );
-        return res.status(400).json({ 
-          message: validationErrors.join(", "),
-          errorCode: "USER_VALIDATION_ERROR"
-        });
-      }
-
-      // Improved error response
-      res.status(500).json({ 
-        message: "Server error during login",
-        errorCode: "SERVER_ERROR",
-        error: process.env.NODE_ENV === 'development' ? {
-          message: err.message,
-          stack: err.stack
-        } : undefined
+    // Validate required fields using existing pattern
+    if (!email.trim() || !password.trim()) {
+      return res.status(400).json({
+        message: "Email and password are required",
+        errorCode: "MISSING_CREDENTIALS",
       });
     }
+
+    console.log("Login attempt:", { email, hasPassword: !!password });
+
+    // Validate required fields
+    if (!email || !password) {
+      console.log("Missing fields:", {
+        hasEmail: !!email,
+        hasPassword: !!password,
+      });
+      return res
+        .status(400)
+        .json({ message: "Please provide both email and password" });
+    }
+
+    // Check if user exists
+    const user = await User.findOne({ email }).populate("department", "name");
+    console.log("User found:", !!user);
+
+    if (!user) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    // Check if user is active
+    if (!user.isActive) {
+      console.log("Inactive user attempted login:", email);
+      return res.status(403).json({
+        message:
+          "Your account has been deactivated. Please contact your administrator.",
+      });
+    }
+
+    // Check password for all users
+    const isMatch = await user.comparePassword(password);
+    console.log("Password match:", isMatch);
+
+    if (!isMatch) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    // Update last login time
+    user.lastLogin = Date.now();
+
+    // Check if createdBy is missing and set a default value if needed
+    if (!user.createdBy) {
+      console.log("Setting default createdBy for user:", user.email);
+      // Set createdBy to the user's own ID as a fallback
+      user.createdBy = user._id;
+    }
+
+    await user.save();
+
+    // Create JWT payload
+    const payload = {
+      userId: user.id,
+      role: user.role,
+    };
+
+    // Sign token with 24 hour expiry
+    const token = jwt.sign(
+      payload,
+      process.env.JWT_SECRET || "development_secret",
+      {
+        expiresIn: "24h",
+      },
+    );
+
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        role: user.role,
+        department: user.department,
+        position: user.position,
+        employeeId: user.employeeId,
+      },
+    });
+  } catch (err) {
+    console.error("Login error:", err.stack);
+
+    // Handle database connection errors
+    if (err.name.startsWith("Mongo")) {
+      return res.status(503).json({
+        message: "Database service unavailable",
+        errorCode: "DB_SERVICE_UNAVAILABLE",
+      });
+    }
+
+    // Handle JWT configuration errors
+    if (err.name === "JsonWebTokenError") {
+      return res.status(500).json({
+        message: "Server configuration error - contact administrator",
+        errorCode: "JWT_CONFIG_MISSING",
+      });
+    }
+
+    // Handle mongoose validation errors from user.save()
+    if (err.name === "ValidationError") {
+      const validationErrors = Object.values(err.errors).map(
+        (error) => error.message,
+      );
+      return res.status(400).json({
+        message: validationErrors.join(", "),
+        errorCode: "USER_VALIDATION_ERROR",
+      });
+    }
+
+    // Improved error response
+    res.status(500).json({
+      message: "Server error during login",
+      errorCode: "SERVER_ERROR",
+      error:
+        process.env.NODE_ENV === "development"
+          ? {
+              message: err.message,
+              stack: err.stack,
+            }
+          : undefined,
+    });
   }
-);
+});
 
 /**
  * @route   GET api/auth/user

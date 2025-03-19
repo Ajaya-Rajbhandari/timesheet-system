@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+import { styled } from "@mui/material/styles"; // Import styled for modern UI
+
 import {
   Container,
   Typography,
@@ -42,20 +44,24 @@ import api from "../services/api";
 const Dashboard = () => {
   const theme = useTheme();
   const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true); // Loading state for data fetching
+
   const [currentTime, setCurrentTime] = useState(moment());
   const [attendanceStatus, setAttendanceStatus] = useState({
     isClockedIn: false,
     clockInTime: null,
-  });
-  const [schedules, setSchedules] = useState([]);
-  const [timeOffRequests, setTimeOffRequests] = useState([]);
+  }); // Attendance status
+
+  const [schedules, setSchedules] = useState([]); // User schedules
+
+  const [timeOffRequests, setTimeOffRequests] = useState([]); // Time off requests
+
   const [quickStats, setQuickStats] = useState({
     totalHours: 0,
     attendanceRate: 0,
     upcomingLeaves: 0,
     pendingRequests: 0,
-  });
+  }); // Quick statistics
 
   // Update current time every minute
   useEffect(() => {
@@ -65,7 +71,8 @@ const Dashboard = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // Fetch initial data
+  // Fetch initial data for dashboard
+
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
@@ -133,21 +140,22 @@ const Dashboard = () => {
       >
         <CircularProgress />
       </Box>
-    );
+    ); // Loading spinner
   }
 
   return (
     <Box
       sx={{
         minHeight: "100vh",
-        background: "linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)",
+        background:
+          "linear-gradient(135deg,rgb(54, 112, 199) 0%, #c3cfe2 100%)",
         py: { xs: 2, sm: 4 },
         px: { xs: 1, sm: 2 },
       }}
       role="main"
       aria-label="Dashboard"
     >
-      <Container maxWidth="lg">
+      <Container maxWidth="lg" sx={{ py: 2 }}>
         {/* Welcome Header */}
         <Card
           sx={{
@@ -201,13 +209,17 @@ const Dashboard = () => {
                 textShadow: "2px 2px 4px rgba(0,0,0,0.1)",
               }}
             >
-              {currentTime.format("HH:mm")}
+              {currentTime.format("hh:mm A")}
             </Typography>
           </CardContent>
         </Card>
 
         {/* Quick Stats */}
-        <Grid container spacing={2} sx={{ mb: 4 }}>
+        <Grid
+          container
+          spacing={2}
+          sx={{ mb: 4, display: "flex", justifyContent: "space-between" }}
+        >
           <Grid item xs={6} md={3}>
             <Card
               sx={{
@@ -265,7 +277,10 @@ const Dashboard = () => {
                     </Typography>
                   </Box>
                   <Typography variant="h4" sx={{ fontWeight: 700 }}>
-                    {quickStats.attendanceRate}%
+                    {quickStats.attendanceRate > 0
+                      ? quickStats.attendanceRate
+                      : "No attendance data available."}
+                    %
                   </Typography>
                   <LinearProgress
                     variant="determinate"
@@ -307,7 +322,9 @@ const Dashboard = () => {
                     </Typography>
                   </Box>
                   <Typography variant="h4" sx={{ fontWeight: 700 }}>
-                    {quickStats.upcomingLeaves}
+                    {quickStats.upcomingLeaves > 0
+                      ? quickStats.upcomingLeaves
+                      : "No upcoming leaves."}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
                     Next 30 Days
@@ -340,7 +357,9 @@ const Dashboard = () => {
                     </Typography>
                   </Box>
                   <Typography variant="h4" sx={{ fontWeight: 700 }}>
-                    {quickStats.pendingRequests}
+                    {quickStats.pendingRequests > 0
+                      ? quickStats.pendingRequests
+                      : "No pending requests."}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
                     Awaiting Approval
@@ -352,7 +371,7 @@ const Dashboard = () => {
         </Grid>
 
         {/* Main Content */}
-        <Grid container spacing={4}>
+        <Grid container spacing={4} sx={{ mt: 4 }}>
           {/* Current Status */}
           <Grid item xs={12} md={4}>
             <Card
@@ -674,3 +693,108 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
+
+const DashboardContent = () => {
+  const theme = useTheme();
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(true); // Loading state for data fetching
+
+  const [currentTime, setCurrentTime] = useState(moment());
+  const [attendanceStatus, setAttendanceStatus] = useState({
+    isClockedIn: false,
+    clockInTime: null,
+  }); // Attendance status
+
+  const [schedules, setSchedules] = useState([]); // User schedules
+
+  const [timeOffRequests, setTimeOffRequests] = useState([]); // Time off requests
+
+  const [quickStats, setQuickStats] = useState({
+    totalHours: 0,
+    attendanceRate: 0,
+    upcomingLeaves: 0,
+    pendingRequests: 0,
+  }); // Quick statistics
+
+  // Update current time every minute
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(moment());
+    }, 60000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Fetch initial data for dashboard
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true);
+
+        // Get current month's date range
+        const startDate = moment().startOf("month").format("YYYY-MM-DD");
+        const endDate = moment().endOf("month").format("YYYY-MM-DD");
+
+        // Fetch data in parallel
+        const [statusRes, schedulesRes, timeOffRes, statsRes] =
+          await Promise.all([
+            getCurrentStatus(),
+            getMySchedules(startDate, endDate),
+            getMyTimeOffRequests(),
+            api.get("/reports/user-stats", { params: { userId: user._id } }),
+          ]);
+
+        setAttendanceStatus({
+          isClockedIn: statusRes.isClockedIn,
+          clockInTime: statusRes.clockIn,
+        });
+        setSchedules(schedulesRes);
+        setTimeOffRequests(timeOffRes);
+
+        // Use real data from the API
+        setQuickStats({
+          totalHours: statsRes.data.totalHours || 0,
+          attendanceRate: statsRes.data.attendanceRate || 0,
+          upcomingLeaves: timeOffRes.filter((r) => r.status === "approved")
+            .length,
+          pendingRequests: timeOffRes.filter((r) => r.status === "pending")
+            .length,
+        });
+      } catch (error) {
+        console.error("Error fetching dashboard data:", error);
+
+        // Fallback to calculated values if API fails
+        setQuickStats({
+          totalHours: 0,
+          attendanceRate: 0,
+          upcomingLeaves: timeOffRequests.filter((r) => r.status === "approved")
+            .length,
+          pendingRequests: timeOffRequests.filter((r) => r.status === "pending")
+            .length,
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
+
+  if (loading) {
+    return (
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          height: "100vh",
+          background: "linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)",
+        }}
+      >
+        <CircularProgress />
+      </Box>
+    ); // Loading spinner
+  }
+
+  return <Container maxWidth="xl">{/* JSX content */}</Container>;
+};

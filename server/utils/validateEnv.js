@@ -30,7 +30,7 @@ const validateEnv = () => {
 
   // Check for missing required variables
   const missingRequired = requiredVars.filter(
-    (varName) => !process.env[varName]
+    (varName) => !process.env[varName],
   );
 
   if (missingRequired.length > 0) {
@@ -42,19 +42,19 @@ const validateEnv = () => {
     // Exit if in production, otherwise just warn
     if (process.env.NODE_ENV === "production") {
       console.error(
-        "Application cannot start without required environment variables in production mode."
+        "Application cannot start without required environment variables in production mode.",
       );
       process.exit(1);
     } else {
       console.error(
-        "WARNING: Application may not function correctly without these variables."
+        "WARNING: Application may not function correctly without these variables.",
       );
     }
   }
 
   // Check for missing recommended variables
   const missingRecommended = recommendedVars.filter(
-    (varName) => !process.env[varName]
+    (varName) => !process.env[varName],
   );
 
   if (missingRecommended.length > 0) {
@@ -66,12 +66,12 @@ const validateEnv = () => {
 
   // Check security variables
   const missingSecurityVars = securityVars.filter(
-    (varName) => !process.env[varName]
+    (varName) => !process.env[varName],
   );
 
   if (missingSecurityVars.length > 0) {
     console.warn(
-      "SECURITY WARNING: Missing security-related environment variables:"
+      "SECURITY WARNING: Missing security-related environment variables:",
     );
     missingSecurityVars.forEach((varName) => {
       console.warn(`  - ${varName}`);
@@ -81,7 +81,7 @@ const validateEnv = () => {
   // Check JWT secret strength
   if (process.env.JWT_SECRET && process.env.JWT_SECRET.length < 32) {
     console.warn(
-      "SECURITY WARNING: JWT_SECRET is too short. It should be at least 32 characters long."
+      "SECURITY WARNING: JWT_SECRET is too short. It should be at least 32 characters long.",
     );
   }
 
@@ -91,14 +91,14 @@ const validateEnv = () => {
     parseInt(process.env.PASSWORD_SALT_ROUNDS) < 10
   ) {
     console.warn(
-      "SECURITY WARNING: PASSWORD_SALT_ROUNDS is too low. It should be at least 10."
+      "SECURITY WARNING: PASSWORD_SALT_ROUNDS is too low. It should be at least 10.",
     );
   }
 
   // Validate JWT expiry
   if (process.env.JWT_EXPIRY && !process.env.JWT_EXPIRY.match(/^\d+[smhd]$/)) {
     console.warn(
-      "WARNING: JWT_EXPIRY format is invalid. It should be a number followed by s, m, h, or d (e.g., 1h)."
+      "WARNING: JWT_EXPIRY format is invalid. It should be a number followed by s, m, h, or d (e.g., 1h).",
     );
   }
 

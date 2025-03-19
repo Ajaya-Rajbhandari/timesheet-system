@@ -20,9 +20,11 @@ const createTestUsers = async () => {
     // Get department references first
     const itDept = await Department.findOne({ code: "IT" });
     const hrDept = await Department.findOne({ code: "HR" });
-    
+
     if (!itDept || !hrDept) {
-      console.error("Required departments not found. Please ensure departments are initialized");
+      console.error(
+        "Required departments not found. Please ensure departments are initialized",
+      );
       process.exit(1);
     }
 
@@ -44,7 +46,7 @@ const createTestUsers = async () => {
         employeeId: "A001",
         phoneNumber: "123-456-7890",
         isActive: true,
-        createdAt: Date.now()
+        createdAt: Date.now(),
       });
 
       await adminUser.save();
@@ -53,7 +55,6 @@ const createTestUsers = async () => {
       adminUser = adminExists;
       console.log("Admin user already exists");
     }
-
 
     // Check if employee user already exists
     const employeeExists = await User.findOne({ email: "employee@test.com" });

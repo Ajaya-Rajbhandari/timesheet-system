@@ -1,5 +1,5 @@
 import React from "react";
-import { Button as MuiButton } from "@mui/material";
+import { PrimaryButton, SecondaryButton } from "./design-system/Button";
 
 const Button = ({
   variant = "contained",
@@ -7,10 +7,12 @@ const Button = ({
   children,
   ...props
 }) => {
+  const ButtonComponent =
+    color === "secondary" ? SecondaryButton : PrimaryButton;
   return (
-    <MuiButton variant={variant} color={color} {...props}>
+    <ButtonComponent variant={variant} {...props}>
       {children}
-    </MuiButton>
+    </ButtonComponent>
   );
 };
 

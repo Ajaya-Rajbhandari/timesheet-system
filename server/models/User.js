@@ -77,7 +77,7 @@ const UserSchema = new mongoose.Schema(
     // Add this to your User schema
     profileImage: {
       type: String,
-      default: '/uploads/profile-images/default-profile.png'
+      default: "/uploads/profile-images/default-profile.png",
     },
     isActive: {
       type: Boolean,
@@ -118,7 +118,7 @@ const UserSchema = new mongoose.Schema(
     timestamps: true,
     toJSON: { virtuals: true },
     toObject: { virtuals: true },
-  }
+  },
 );
 
 // Index for faster queries
@@ -155,7 +155,7 @@ UserSchema.pre("save", async function (next) {
       // All other users need createdBy
       if (!this.createdBy) {
         throw new Error(
-          "CreatedBy field is required for non-first admin users"
+          "CreatedBy field is required for non-first admin users",
         );
       }
 

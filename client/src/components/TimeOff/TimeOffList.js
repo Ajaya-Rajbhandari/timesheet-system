@@ -1,20 +1,21 @@
 // ... existing imports ...
-import { useDepartments } from '../../context/DepartmentContext';
+import { useDepartments } from "../../context/DepartmentContext";
 
 function TimeOffList() {
   const { user } = useAuth();
   const { departments } = useDepartments();
-  const [selectedDepartment, setSelectedDepartment] = useState('');
+  const [selectedDepartment, setSelectedDepartment] = useState("");
 
   // Add to your existing fetch logic
   const fetchRequests = useCallback(async () => {
     try {
       const params = {
         status: selectedStatus,
-        ...(user.role === 'admin' && selectedDepartment && { department: selectedDepartment }),
-        ...(user.role === 'manager' && { department: user.department?._id })
+        ...(user.role === "admin" &&
+          selectedDepartment && { department: selectedDepartment }),
+        ...(user.role === "manager" && { department: user.department?._id }),
       };
-      
+
       const response = await timeOffService.getAll(params);
       setRequests(response.data);
     } catch (err) {
@@ -26,7 +27,7 @@ function TimeOffList() {
   return (
     <Box sx={{ p: 3 }}>
       {/* Add this filter section */}
-      {user.role === 'admin' && (
+      {user.role === "admin" && (
         <FormControl fullWidth sx={{ mb: 2 }}>
           <InputLabel>Department Filter</InputLabel>
           <Select
@@ -48,7 +49,7 @@ function TimeOffList() {
       <Table>
         <TableHead>
           <TableRow>
-            {user.role === 'admin' && <TableCell>Department</TableCell>}
+            {user.role === "admin" && <TableCell>Department</TableCell>}
             <TableCell>Type</TableCell>
             {/* ... rest of columns ... */}
           </TableRow>
@@ -56,10 +57,8 @@ function TimeOffList() {
         <TableBody>
           {requests.map((request) => (
             <TableRow key={request._id}>
-              {user.role === 'admin' && (
-                <TableCell>
-                  {request.user?.department?.name || 'N/A'}
-                </TableCell>
+              {user.role === "admin" && (
+                <TableCell>{request.user?.department?.name || "N/A"}</TableCell>
               )}
               <TableCell>{request.type}</TableCell>
               {/* ... rest of cells ... */}

@@ -7,15 +7,14 @@ const path = require("path");
 const validateEnv = require("./utils/validateEnv");
 const { auditLogger } = require("./middleware/auditLogger");
 const securityHeaders = require("./middleware/securityHeaders");
-const profileRoutes = require('./routes/profileRoutes');
+const profileRoutes = require("./routes/profileRoutes");
 
 // Load environment variables
 dotenv.config();
 validateEnv();
 
 const app = express();
-app.set('trust proxy', 1); // Enable trust proxy since we're behind nginx
-
+app.set("trust proxy", 1); // Enable trust proxy since we're behind nginx
 
 // Security middleware
 app.use(
@@ -31,7 +30,7 @@ app.use(
     noSniff: false,
     referrerPolicy: false,
     xssFilter: false,
-  })
+  }),
 );
 app.use(securityHeaders);
 
@@ -58,7 +57,7 @@ app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 // Static file serving - Move this up before routes
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Audit logging
 app.use(auditLogger);

@@ -1,11 +1,17 @@
-import React, { useState } from 'react';
-import { Button, Box, Typography, CircularProgress, Avatar } from '@mui/material';
-import CloudUploadIcon from '@mui/icons-material/CloudUpload';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import React, { useState } from "react";
+import {
+  Button,
+  Box,
+  Typography,
+  CircularProgress,
+  Avatar,
+} from "@mui/material";
+import CloudUploadIcon from "@mui/icons-material/CloudUpload";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 
 const ImageUpload = ({ defaultImage }) => {
   const [selectedFile, setSelectedFile] = useState(null);
-  const [previewUrl, setPreviewUrl] = useState(defaultImage || '');
+  const [previewUrl, setPreviewUrl] = useState(defaultImage || "");
   const [uploading, setUploading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState(null);
@@ -15,12 +21,12 @@ const ImageUpload = ({ defaultImage }) => {
     if (!file) return;
 
     // Validate file type and size
-    if (!file.type.startsWith('image/')) {
-      setError('Please upload an image file');
+    if (!file.type.startsWith("image/")) {
+      setError("Please upload an image file");
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
-      setError('File size must be less than 5MB');
+      setError("File size must be less than 5MB");
       return;
     }
 
@@ -31,20 +37,24 @@ const ImageUpload = ({ defaultImage }) => {
   };
 
   const handleUpload = () => {
-    setError('Image upload functionality is currently disabled.');
+    setError("Image upload functionality is currently disabled.");
   };
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'center' }}>
-      <Avatar
-        src={previewUrl}
-        sx={{ width: 120, height: 120, mb: 2 }}
-      />
+    <Box
+      sx={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 2,
+        alignItems: "center",
+      }}
+    >
+      <Avatar src={previewUrl} sx={{ width: 120, height: 120, mb: 2 }} />
 
       <input
         type="file"
         accept="image/*"
-        style={{ display: 'none' }}
+        style={{ display: "none" }}
         id="image-upload"
         onChange={handleFileChange}
       />
@@ -84,7 +94,7 @@ const ImageUpload = ({ defaultImage }) => {
             Uploading...
           </>
         ) : (
-          'Upload'
+          "Upload"
         )}
       </Button>
     </Box>

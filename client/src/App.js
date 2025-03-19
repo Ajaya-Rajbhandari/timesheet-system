@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { Box } from '@mui/material';
+import { Box } from "@mui/material";
 import {
   BrowserRouter as Router,
   Routes,
@@ -12,7 +12,7 @@ import theme from "./theme/theme";
 
 // Context Providers
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
-import { DepartmentProvider } from './context/DepartmentContext';
+import { DepartmentProvider } from "./context/DepartmentContext";
 import { AttendanceProvider } from "./contexts/AttendanceContext";
 import { CustomThemeProvider } from "./context/ThemeContext";
 
@@ -95,7 +95,7 @@ function App() {
         <AttendanceProvider>
           <ThemeProvider theme={theme}>
             <CustomThemeProvider>
-              <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+              <Box sx={{ display: "flex", minHeight: "100vh" }}>
                 <CssBaseline />
                 <Router>
                   <AppContent />

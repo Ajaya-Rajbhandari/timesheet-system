@@ -5,69 +5,61 @@ import {
   Toolbar,
   Typography,
   Drawer,
-  ListItemIcon,
-  ListItemText,
-  IconButton,
-  Divider,
-  Avatar,
-  Menu,
-  MenuItem,
   CssBaseline,
-  useTheme,
   Switch,
+  Avatar,
 } from "@mui/material";
+
 import { useNavigate, Outlet } from "react-router-dom";
 import {
-  Person as PersonIcon,
-  Logout as LogoutIcon,
-  Brightness4 as DarkModeIcon,
-  Brightness7 as LightModeIcon,
-  ChevronLeft as ChevronLeftIcon,
-  ChevronRight as ChevronRightIcon,
-} from "@mui/icons-material";
+  LightMode as LightModeIcon,
+  DarkMode as DarkModeIcon,
+} from "@mui/icons-material"; // Restored necessary imports
+
 import { useAuth } from "../../contexts/AuthContext";
-import { useAttendance } from "../../contexts/AttendanceContext";
 import { useTheme as useCustomTheme } from "../../context/ThemeContext";
-import Sidebar from './Sidebar';  // Make sure this path is correct
+import Sidebar from "./Sidebar"; // Make sure this path is correct
 import { styled } from "@mui/material/styles";
 
-const drawerWidth = 260;
+const drawerWidth = "25vw";
 
-const Main = styled('main', { shouldForwardProp: (prop) => prop !== 'open' })(
+const Main = styled("main", { shouldForwardProp: (prop) => prop !== "open" })(
   ({ theme, open }) => ({
     flexGrow: 1,
     padding: theme.spacing(3),
-    transition: theme.transitions.create('margin', {
+    marginTop: "70px", // Account for app bar height
+    position: "relative",
+    zIndex: 1,
+    transition: theme.transitions.create(["margin", "width"], {
       easing: theme.transitions.easing.sharp,
       duration: theme.transitions.duration.leavingScreen,
     }),
-    width: '100%',
+    overflow: "auto", // Ensure proper scrolling
+    width: "100%",
+    height: "calc(100vh - 70px)",
+    marginLeft: open ? `${drawerWidth}px` : 0, // Adjust margin based on sidebar state
     ...(open && {
-      marginLeft: `${drawerWidth}px`,
-      width: `calc(100% - ${drawerWidth}px)`,
-      transition: theme.transitions.create('margin', {
-        easing: theme.transitions.easing.easeOut,
-        duration: theme.transitions.duration.enteringScreen,
-      }),
+      paddingLeft: `${drawerWidth + theme.spacing(3)}px`,
+      width: `calc(100% - ${drawerWidth})`, // Updated to use new drawerWidth format
     }),
   }),
 );
 
 const StyledAppBar = styled(AppBar, {
-  shouldForwardProp: (prop) => prop !== 'open',
+  shouldForwardProp: (prop) => prop !== "open",
 })(({ theme, open }) => ({
-  transition: theme.transitions.create(['margin', 'width'], {
+  transition: theme.transitions.create(["margin", "width"], {
     easing: theme.transitions.easing.sharp,
     duration: theme.transitions.duration.leavingScreen,
   }),
-  backdropFilter: 'blur(8px)',
-  backgroundColor: 'rgba(255, 255, 255, 0.9)',
-  borderBottom: '1px solid',
+  backdropFilter: "blur(8px)",
+  backgroundColor: "rgba(255, 255, 255, 0.9)",
+  zIndex: theme.zIndex.drawer + 1,
+  borderBottom: "1px solid",
   borderColor: theme.palette.divider,
-  ...(open && {
-    width: `calc(100% - ${drawerWidth}px)`,
-    marginLeft: `${drawerWidth}px`,
-  }),
+  width: open ? `calc(100% - ${drawerWidth}px)` : "100%", // Adjust width based on sidebar state
+  marginLeft: open ? `${drawerWidth}px` : 0, // Adjust margin based on sidebar state
+  justifyContent: "flex-end",
 }));
 
 const UserInfo = styled(Box)(({ theme }) => ({
@@ -76,15 +68,15 @@ const UserInfo = styled(Box)(({ theme }) => ({
   gap: theme.spacing(2),
   padding: theme.spacing(1.5, 2),
   borderRadius: theme.shape.borderRadius,
-  transition: 'all 0.2s ease-in-out',
+  transition: "all 0.2s ease-in-out",
 }));
 
-const DrawerHeader = styled('div')(({ theme }) => ({
-  display: 'flex',
-  alignItems: 'center',
+const DrawerHeader = styled("div")(({ theme }) => ({
+  display: "flex",
+  alignItems: "center",
   padding: theme.spacing(0, 1),
   ...theme.mixins.toolbar,
-  justifyContent: 'flex-end',
+  justifyContent: "space-between",
 }));
 
 const StyledDrawer = styled(Drawer)(({ theme }) => ({
@@ -101,7 +93,7 @@ const StyledDrawer = styled(Drawer)(({ theme }) => ({
 const StyledSwitch = styled(Switch)(({ theme }) => ({
   width: 62,
   height: 34,
-  padding: 7,
+  padding: 3,
   "& .MuiSwitch-switchBase": {
     margin: 1,
     padding: 0,
@@ -116,12 +108,18 @@ const StyledSwitch = styled(Switch)(({ theme }) => ({
       },
       "& + .MuiSwitch-track": {
         opacity: 1,
-        backgroundColor: theme.palette.mode === "dark" ? "#8796A5" : "#aab4be",
+        backgroundColor:
+          theme.palette.mode === "dark"
+            ? "rgba(0, 0, 0, 0.8)"
+            : "rgba(255, 255, 255, 0.9)",
       },
     },
   },
   "& .MuiSwitch-thumb": {
-    backgroundColor: theme.palette.mode === "dark" ? "#003892" : "#001e3c",
+    backgroundColor:
+      theme.palette.mode === "dark"
+        ? "rgba(0, 0, 0, 0.8)"
+        : "rgba(255, 255, 255, 0.9)",
     width: 32,
     height: 32,
     "&:before": {
@@ -140,19 +138,21 @@ const StyledSwitch = styled(Switch)(({ theme }) => ({
   },
   "& .MuiSwitch-track": {
     opacity: 1,
-    backgroundColor: theme.palette.mode === "dark" ? "#8796A5" : "#aab4be",
+    backgroundColor:
+      theme.palette.mode === "dark"
+        ? "rgba(0, 0, 0, 0.8)"
+        : "rgba(255, 255, 255, 0.9)",
     borderRadius: 20 / 2,
   },
 }));
 
 const Layout = () => {
   const { user, logout, isAdmin, isManager } = useAuth();
-  const { getStatusText, getStatusColor } = useAttendance();
   const navigate = useNavigate();
-  const theme = useTheme();
   const { darkMode, toggleDarkMode } = useCustomTheme();
-  
-  const [open, setOpen] = useState(true);
+
+  const [open, setOpen] = useState(true); // Ensure this state is managed correctly
+  const toggleSidebar = () => setOpen((prev) => !prev); // Restored unused function
   const [anchorEl, setAnchorEl] = useState(null);
 
   const handleProfileMenuOpen = (event) => {
@@ -169,14 +169,17 @@ const Layout = () => {
   };
 
   return (
-    <Box sx={{ display: "flex" }}>
+    <Box
+      sx={{ display: "flex", height: "100vh", overflow: "hidden", margin: 0 }}
+    >
       <CssBaseline />
-      <StyledAppBar position="fixed" open={open} elevation={0}>
-        <Toolbar sx={{ justifyContent: "space-between", minHeight: '70px' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+      <StyledAppBar position="fixed" open={open} elevation={1}>
+        <Toolbar
+          sx={{ justifyContent: "space-between", minHeight: "70px", px: 3 }}
+        >
+          <Box sx={{ display: "flex", alignItems: "center" }}>
             {/* Removed the menu button completely */}
           </Box>
-  
           <UserInfo>
             <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
               <StyledSwitch
@@ -185,10 +188,18 @@ const Layout = () => {
                 icon={<LightModeIcon />}
                 checkedIcon={<DarkModeIcon />}
               />
-              
-              <Box sx={{ height: '24px', width: '1px', bgcolor: 'divider' }} />
-  
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, cursor: 'pointer' }} onClick={handleProfileMenuOpen}>
+
+              <Box sx={{ height: "24px", width: "1px", bgcolor: "divider" }} />
+
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1,
+                  cursor: "pointer",
+                }}
+                onClick={handleProfileMenuOpen}
+              >
                 <Avatar
                   sx={{
                     width: 40,
@@ -197,16 +208,32 @@ const Layout = () => {
                     border: "2px solid",
                     borderColor: "background.paper",
                   }}
-                  src={user?.profileImage ? `${process.env.REACT_APP_API_URL || ""}/api/upload/profile/${user.profileImage}` : undefined}
+                  src={
+                    user?.profileImage
+                      ? `${
+                          process.env.REACT_APP_API_URL || ""
+                        }/api/upload/profile/${user.profileImage}`
+                      : undefined
+                  }
                 >
                   {user?.firstName?.charAt(0) || "U"}
                 </Avatar>
                 <Box>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                  <Typography
+                    variant="subtitle1"
+                    sx={{ fontWeight: 600, color: "text.primary" }}
+                  >
                     {user ? `${user.firstName} ${user.lastName}` : "User"}
                   </Typography>
-                  <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                    {isAdmin ? "Administrator" : isManager ? "Manager" : "Employee"}
+                  <Typography
+                    variant="caption"
+                    sx={{ color: "text.secondary" }}
+                  >
+                    {isAdmin
+                      ? "Administrator"
+                      : isManager
+                        ? "Manager"
+                        : "Employee"}
                   </Typography>
                 </Box>
               </Box>
@@ -214,65 +241,61 @@ const Layout = () => {
           </UserInfo>
         </Toolbar>
       </StyledAppBar>
-  
-      {/* Profile Menu */}
-      <Menu
-        anchorEl={anchorEl}
-        open={Boolean(anchorEl)}
-        onClose={handleProfileMenuClose}
-        onClick={handleProfileMenuClose}
-        PaperProps={{
-          sx: {
-            mt: 1.5,
-            minWidth: 180,
-            borderRadius: 2,
-            boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
+
+      {/* Sidebar fixed on the left */}
+      <Box
+        sx={{
+          width: drawerWidth,
+          flexShrink: 0,
+          position: "fixed",
+          top: 0,
+          left: 0,
+          height: "100vh",
+          bgcolor: "background.paper",
+          boxShadow: 1,
+          zIndex: 1000, // Ensure sidebar is above other content
+        }}
+      >
+        <Sidebar />
+      </Box>
+
+      {/* Main content */}
+      <Main
+        open={open}
+        sx={{
+          flexGrow: 1,
+          mt: 8,
+          ml: `${drawerWidth}`, // Updated to use new drawerWidth format
+          overflowY: "auto",
+          overflowX: "hidden",
+          bgcolor: "background.paper",
+          padding: { xs: 2, md: 2 },
+          width: `calc(100% - ${drawerWidth})`, // Updated to use new drawerWidth format
+          maxWidth: 1400,
+          mx: "auto",
+          "& > *": {
+            minWidth: 0,
           },
         }}
-        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
       >
-        <MenuItem onClick={() => navigate("/profile")}>
-          <ListItemIcon>
-            <PersonIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>Profile</ListItemText>
-        </MenuItem>
-        <MenuItem onClick={handleLogout}>
-          <ListItemIcon>
-            <LogoutIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>Logout</ListItemText>
-        </MenuItem>
-      </Menu>
-  
-      {/* Single permanent drawer for larger screens only */}
-      <Box component="nav" sx={{ width: drawerWidth, flexShrink: 0 }}>
-        <StyledDrawer
-          variant="permanent"
-          open={open}
-        >
-          <DrawerHeader>
-            <Box sx={{ p: 2, width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Typography variant="h6" color="primary" fontWeight="bold">
-                Timesheet System
-              </Typography>
-              <IconButton onClick={() => setOpen(false)}>
-                {theme.direction === 'ltr' ? <ChevronLeftIcon /> : <ChevronRightIcon />}
-              </IconButton>
-            </Box>
-          </DrawerHeader>
-          <Divider />
-          <Sidebar />
-        </StyledDrawer>
-      </Box>
-      
-      <Main open={open} sx={{ 
-        width: '100%', 
-        maxWidth: '100%',
-      }}>
         <DrawerHeader />
-        <Outlet />
+        <Box
+          sx={{
+            padding: { xs: 1, md: 3 },
+            width: "100%",
+            maxWidth: 1400,
+            mx: "auto",
+            boxSizing: "border-box",
+            overflowX: "hidden",
+            "& > .MuiPaper-root": {
+              borderRadius: 4,
+              boxShadow: "0 8px 32px rgba(0,0,0,0.05)",
+              maxWidth: "100%",
+            },
+          }}
+        >
+          <Outlet />
+        </Box>
       </Main>
     </Box>
   );

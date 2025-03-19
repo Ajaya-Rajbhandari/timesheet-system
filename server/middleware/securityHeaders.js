@@ -9,13 +9,13 @@ const securityHeaders = (req, res, next) => {
   // HSTS
   res.setHeader(
     "Strict-Transport-Security",
-    "max-age=31536000; includeSubDomains"
+    "max-age=31536000; includeSubDomains",
   );
 
   // Content Security Policy
   res.setHeader(
     "Content-Security-Policy",
-    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'"
+    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'",
   );
 
   // X-Content-Type-Options
@@ -33,13 +33,13 @@ const securityHeaders = (req, res, next) => {
   // Feature-Policy
   res.setHeader(
     "Feature-Policy",
-    "camera 'none'; microphone 'none'; geolocation 'none'"
+    "camera 'none'; microphone 'none'; geolocation 'none'",
   );
 
   // Permissions-Policy - Limits browser features
   res.setHeader(
     "Permissions-Policy",
-    "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=(), interest-cohort=()"
+    "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=(), interest-cohort=()",
   );
 
   // Cache-Control - Prevents caching of sensitive information

@@ -1,5 +1,5 @@
-import { createContext, useContext, useEffect, useState } from 'react';
-import departmentService from '../services/departmentService';
+import { createContext, useContext, useEffect, useState } from "react";
+import departmentService from "../services/departmentService";
 
 const DepartmentContext = createContext();
 
@@ -7,7 +7,7 @@ const DepartmentContext = createContext();
 export const useDepartments = () => {
   const context = useContext(DepartmentContext);
   if (!context) {
-    throw new Error('useDepartments must be used within a DepartmentProvider');
+    throw new Error("useDepartments must be used within a DepartmentProvider");
   }
   return context;
 };
@@ -22,10 +22,10 @@ export const DepartmentProvider = ({ children }) => {
         const response = await departmentService.getAll();
         setDepartments(response.data);
       } catch (err) {
-        console.error('Failed to load departments:', err);
+        console.error("Failed to load departments:", err);
       }
     };
-    
+
     loadDepartments();
   }, []);
 

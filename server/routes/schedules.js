@@ -86,7 +86,7 @@ router.post("/", auth, isManagerOrAdmin, async (req, res) => {
 router.get("/", auth, isManagerOrAdmin, async (req, res) => {
   try {
     const schedules = await Schedule.find()
-      .populate('user', 'firstName lastName')  // Fix field name from 'userId' to 'user'
+      .populate("user", "firstName lastName") // Fix field name from 'userId' to 'user'
       .sort({ startDate: -1 });
     res.json(schedules);
   } catch (err) {
@@ -95,7 +95,7 @@ router.get("/", auth, isManagerOrAdmin, async (req, res) => {
   }
 });
 
-/** 
+/**
  * @route   POST api/schedules
  * @desc    Create a new schedule
  * @access  Private (Admin/Manager)

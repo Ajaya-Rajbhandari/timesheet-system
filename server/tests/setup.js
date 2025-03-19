@@ -161,7 +161,7 @@ module.exports.createTestUser = async (User, Department, role = "employee") => {
 module.exports.createTestSchedule = async (
   Schedule,
   userId,
-  scheduleData = {}
+  scheduleData = {},
 ) => {
   const defaultSchedule = {
     userId,

@@ -126,7 +126,7 @@ app.post(
       message: "Profile image uploaded successfully",
       profileImage: `/uploads/profile-images/${req.file.filename}`,
     });
-  }
+  },
 );
 
 // Error handling middleware

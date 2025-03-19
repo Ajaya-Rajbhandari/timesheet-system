@@ -451,7 +451,7 @@ const Attendance = () => {
                 </Typography>
                 <Typography variant="h6">
                   {calculateDailyTotalHours(
-                    groupedAttendance[moment().format("YYYY-MM-DD")] || []
+                    groupedAttendance[moment().format("YYYY-MM-DD")] || [],
                   )}
                 </Typography>
               </Box>
@@ -488,7 +488,7 @@ const Attendance = () => {
                 </Typography>
               </Box>
             </Grid>
-            
+
             <Grid item xs={6}>
               <Box sx={{ mb: 2 }}>
                 <Typography variant="body1" color="textSecondary">

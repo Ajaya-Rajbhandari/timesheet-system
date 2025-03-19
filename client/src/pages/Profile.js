@@ -39,8 +39,8 @@ import {
   updatePassword,
 } from "../services/userService";
 import moment from "moment";
-import ImageUpload from '../components/ImageUpload';
-import axios from 'axios';
+import ImageUpload from "../components/ImageUpload";
+import axios from "axios";
 
 const Profile = () => {
   const { user, checkAuthStatus } = useAuth();
@@ -224,21 +224,25 @@ const Profile = () => {
   const handleImageUpload = async (formData) => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem("token");
       const config = {
         headers: {
-          'Content-Type': 'multipart/form-data',
+          "Content-Type": "multipart/form-data",
           Authorization: `Bearer ${token}`,
         },
       };
 
-      const { data } = await axios.post('/api/profile/upload', formData, config);
+      const { data } = await axios.post(
+        "/api/profile/upload",
+        formData,
+        config,
+      );
       setProfileImage(data.profileImage);
-      setSuccessMessage('Profile image updated successfully!');
+      setSuccessMessage("Profile image updated successfully!");
       setSuccess(true);
     } catch (error) {
-      console.error('Image upload failed:', error);
-      setError('Failed to upload image. Please try again.');
+      console.error("Image upload failed:", error);
+      setError("Failed to upload image. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -478,19 +482,28 @@ const Profile = () => {
                   <Typography variant="h6" gutterBottom>
                     Profile Picture
                   </Typography>
-                  
+
                   <Grid container spacing={3} alignItems="center">
-                    <Grid item xs={6} sx={{ display: 'flex', justifyContent: 'center', flexDirection: 'column', alignItems: 'center' }}>
+                    <Grid
+                      item
+                      xs={6}
+                      sx={{
+                        display: "flex",
+                        justifyContent: "center",
+                        flexDirection: "column",
+                        alignItems: "center",
+                      }}
+                    >
                       {/* ... existing content ... */}
                     </Grid>
-                    
+
                     <Grid item xs={6}>
                       {/* ... existing content ... */}
                     </Grid>
                   </Grid>
                 </Box>
               )}
-              
+
               {/* ... other tabs ... */}
             </Box>
           </Paper>

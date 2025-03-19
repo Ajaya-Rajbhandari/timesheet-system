@@ -51,7 +51,7 @@ describe("User Model Tests", () => {
         password: "Password123!",
         role: "admin",
         position: "System Administrator",
-      })
+      }),
     ).rejects.toThrow();
 
     // Should succeed with createdBy
@@ -150,7 +150,7 @@ describe("User Model Tests", () => {
         role: "admin",
         position: "System Administrator",
         createdBy: manager._id,
-      })
+      }),
     ).rejects.toThrow();
 
     // Manager tries to create another manager (should fail)
@@ -163,7 +163,7 @@ describe("User Model Tests", () => {
         role: "manager",
         position: "Department Manager",
         createdBy: manager._id,
-      })
+      }),
     ).rejects.toThrow();
   });
 
@@ -199,7 +199,7 @@ describe("User Model Tests", () => {
         role: "employee",
         position: "Software Developer",
         createdBy: employee._id,
-      })
+      }),
     ).rejects.toThrow();
   });
 });
